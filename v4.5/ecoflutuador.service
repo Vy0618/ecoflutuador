@@ -1,0 +1,11 @@
+[Unit]
+Description=EcoFlutuador Servidor
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/eco/servidor.py
+Restart=always
+User=eco
+
+[Install]
+WantedBy=multi-user.target

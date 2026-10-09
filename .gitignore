@@ -1,0 +1,36 @@
+# Ambientes locais
+.venv/
+venv/
+env/
+.venv_sitepackages/
+
+# Python e ferramentas
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Configuração particular e credenciais de rede
+.env
+.env.*
+!.env.example
+config.local.yaml
+*.nmconnection
+.aws/
+
+# Saídas geradas
+build/
+dist/
+*.log
+*.log.*
+
+# Arquivos do sistema e editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

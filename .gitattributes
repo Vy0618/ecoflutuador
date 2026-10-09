@@ -1,0 +1,14 @@
+# Normalizar arquivos de texto, inclusive em checkouts no Windows.
+* text=auto
+*.py text eol=lf
+*.ino text eol=lf
+*.h text eol=lf
+*.cpp text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.service text eol=lf
+*.pb binary
+*.bin binary
+*.elf binary
+*.tar.gz binary

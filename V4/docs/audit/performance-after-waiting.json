@@ -1,0 +1,1 @@
+{"exit_code": 0, "host_only": true, "mode": "waiting", "elapsed_s": 5.416, "cpu_s": 1.703, "cpu_percent_one_core": 31.45, "peak_rss_kib": 73836, "stdout_bytes": 0, "stderr_bytes": 2227, "log_lines": 12}

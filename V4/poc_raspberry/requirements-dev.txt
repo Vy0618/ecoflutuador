@@ -1,0 +1,4 @@
+# Host-only tests and synthetic frames; no GUI runtime is required.
+-r requirements.txt
+opencv-python-headless>=4.8,<6
+numpy>=1.24,<3

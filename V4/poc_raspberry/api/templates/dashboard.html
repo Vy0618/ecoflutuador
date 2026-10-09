@@ -1,0 +1,26 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EcoFlutuador V4</title>
+<style>body{font:16px system-ui;background:#eef5f3;color:#163e36;max-width:1050px;margin:32px auto;padding:0 20px}h1{margin-bottom:4px}#link{margin-bottom:24px}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}section{background:white;padding:20px;border-radius:12px;border:1px solid #c9ded7}h2{font-size:16px;margin-top:0}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px monospace}table{width:100%;border-collapse:collapse;background:white;font-size:14px}td,th{text-align:left;padding:10px;border-bottom:1px solid #c9ded7}.value{font-size:28px}footer{margin:24px 0;color:#526d66}</style>
+<h1>EcoFlutuador V4</h1><p id="link" role="status">Conectando…</p>
+<main><section><h2>Estado / comando</h2><div id="state" class="value">—</div><p id="command">—</p></section><section><h2>Último objeto observado</h2><div id="object" class="value">—</div><p id="vision">—</p></section><section><h2>Sensores</h2><pre id="sensors">—</pre></section><section><h2>Localização</h2><pre id="gps">—</pre></section><section><h2>Comunicação / sistema</h2><pre id="system">—</pre></section><section><h2>Erros</h2><pre id="errors">Nenhum erro registrado</pre></section></main>
+<h2>Histórico recente</h2><table><thead><tr><th>Horário</th><th>Estado</th><th>Objeto</th><th>Comando</th></tr></thead><tbody id="history"></tbody></table>
+<footer>Controle local no Raspberry e ESP32. Atualização a cada 5 segundos. Histórico limitado à sessão.</footer>
+<script>
+const put=(id,value)=>document.getElementById(id).textContent=value;
+let lastSeen=null;
+async function update(){try{
+ const response=await fetch('/telemetry',{cache:'no-store',signal:AbortSignal.timeout(3000)});
+ if(!response.ok)throw Error(response.status);const t=await response.json();
+ put('link',`API disponível · ${t.device_id} · ${t.timestamp} · modo ${t.system.mode||'—'}`);
+ put('state',t.system.state);put('command',t.navigation.command);
+ if(t.vision.detected)lastSeen={...t.vision,time:t.timestamp};
+ put('object',lastSeen?.class||'Nenhum');put('vision',lastSeen?`${Math.round(lastSeen.confidence*100)}% · ${lastSeen.zone} · ${lastSeen.time}${t.vision.detected?'':' · sem detecção atual'}`:'Aguardando reconhecimento');
+ put('sensors',Object.entries(t.sensors).map(([k,v])=>`${k}: ${v??'indisponível'}`).join('\n'));
+ put('gps',`${t.gps.fix?'Fix válido':'Sem fix atual'}\nLat: ${t.gps.lat??'—'}\nLon: ${t.gps.lon??'—'}`);
+ put('system',`ESP32: ${t.communication.esp32_connected?'conectado':'offline/simulado'}\nIdade TEL: ${t.communication.telemetry_age_ms??'—'} ms\nUptime Pi: ${t.system.uptime_s}s\nModelo: ${t.vision.model_version??'não definido'}\nBackend: ${t.vision.backend??'—'}`);
+ put('errors',t.system.last_error||'Nenhum erro registrado');
+ const historyResponse=await fetch('/history',{signal:AbortSignal.timeout(3000)});if(!historyResponse.ok)throw Error(historyResponse.status);
+ const history=await historyResponse.json();const rows=document.getElementById('history');rows.replaceChildren();
+ for(const e of history.slice(-20).reverse()){const tr=document.createElement('tr');for(const value of [e.timestamp,e.system.state,e.vision.class||'—',e.navigation.command]){const td=document.createElement('td');td.textContent=value;tr.append(td)}rows.append(tr)}
+ }catch(error){put('link','API indisponível · dados exibidos podem estar desatualizados')}
+ finally{setTimeout(update,5000)}}update();
+</script></html>

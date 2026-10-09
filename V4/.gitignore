@@ -1,0 +1,6 @@
+poc_raspberry/.venv_sitepackages/
+**/__pycache__/
+*.py[cod]
+config.local.yaml
+*.log
+build/

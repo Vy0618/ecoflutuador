@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>EcoFlutuador</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <h2>EcoFlutuador</h2>
+
+    <div class="cam-wrap">
+        <img id="cam" src="/stream">
+        <div id="badge-modo">MANUAL</div>
+    </div>
+
+    <!-- Botão de modo -->
+    <div id="modo-wrap">
+        <button id="btn-modo" onclick="alternarModo()">MODO MANUAL</button>
+    </div>
+
+    <!-- Potência — sempre visível -->
+    <div class="power-box">
+        <div class="motor-ctrl">
+            <h3>Motor 1 (Esquerdo)</h3>
+            <div class="val" id="val1">30%</div>
+            <input type="range" id="slider1" min="0" max="100" value="30">
+            <div class="status" id="status1">—</div>
+        </div>
+        <div class="motor-ctrl">
+            <h3>Motor 2 (Direito)</h3>
+            <div class="val" id="val2">30%</div>
+            <input type="range" id="slider2" min="0" max="100" value="30">
+            <div class="status" id="status2">—</div>
+        </div>
+    </div>
+
+    <div class="link-btn">
+        <label for="linkado">Sincronizar motores</label>
+        <input type="checkbox" id="linkado" checked>
+    </div>
+
+    <!-- Controles manuais -->
+    <div id="controles" style="margin-top:10px;">
+        <button id="btn-frente">Frente</button><br>
+        <button id="btn-esq">Esq</button>
+        <button id="btn-parar">Parar</button>
+        <button id="btn-dir">Dir</button><br>
+        <button id="btn-gire">Gir E</button>
+        <button id="btn-gird">Gir D</button>
+    </div>
+
+    <div id="log">Aguardando comandos...</div>
+     <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>

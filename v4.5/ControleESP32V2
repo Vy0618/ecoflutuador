@@ -1,0 +1,119 @@
+#include <Arduino.h>
+#include <ESP32Servo.h>
+
+#define ESC_PIN1 12
+#define ESC_PIN2 14
+
+//motor direito e esquerdo, respectivamente.
+Servo esc1; 
+Servo esc2;
+
+int potencia1 = 30; 
+int potencia2 = 30; 
+#define PASSO 15
+#define INTERVALO_MS 20
+
+int pctParaMicro(int pct)
+{
+  pct = constrain(pct, 0, 100);
+  return map(pct, 0, 100, 1000, 2000);
+}
+
+void parar()
+{
+  esc1.writeMicroseconds(1000);
+  esc2.writeMicroseconds(1000);
+}
+
+void avancar()
+{
+  esc1.writeMicroseconds(pctParaMicro(potencia1));
+  esc2.writeMicroseconds(pctParaMicro(potencia2));
+}
+
+void girarDir()
+{
+  esc1.writeMicroseconds(1000);
+  esc2.writeMicroseconds(pctParaMicro(potencia2));
+}
+
+void girarEsq()
+{
+  esc1.writeMicroseconds(pctParaMicro(potencia1));
+  esc2.writeMicroseconds(1000);
+}
+
+void lerPotencia(String linha)
+{
+  // Formato "P1045" → motor 1, 45%
+  // Formato "P2070" → motor 2, 70%
+  if (linha.startsWith("P") && linha.length() == 5)
+  {
+    int motor = linha.substring(1, 2).toInt();
+    int val = linha.substring(2).toInt();
+    val = constrain(val, 0, 100);
+    if (motor == 1)
+    {
+      potencia1 = val;
+      Serial.print("PWR_OK:1:");
+      Serial.println(potencia1);
+    }
+    else if (motor == 2)
+    {
+      potencia2 = val;
+      Serial.print("PWR_OK:2:");
+      Serial.println(potencia2);
+    }
+  }
+}
+
+void executarComando(char cmd)
+{
+  switch (cmd)
+  {
+  case 'w':
+    avancar();
+    break;
+  case 'a':
+    girarEsq();
+    break;
+  case 'd':
+    girarDir();
+    break;
+  case 's':
+    parar();
+    break;
+  }
+  Serial.print("CMD_OK:");
+  Serial.println(cmd);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  esc1.attach(ESC_PIN1, 1000, 2000);
+  esc2.attach(ESC_PIN2, 1000, 2000);
+  Serial.println("Armando ESC...");
+  delay(750);
+  parar();
+  delay(750);
+  Serial.println("Pronto!");
+}
+
+void loop()
+{
+  if (Serial.available() > 0)
+  {
+    String entrada = Serial.readStringUntil('\n');
+    entrada.trim();
+
+    if (entrada.startsWith("P"))
+    {
+      lerPotencia(entrada);
+    }
+    else if (entrada.length() == 1)
+    {
+      executarComando(entrada[0]);
+    }
+  }
+}

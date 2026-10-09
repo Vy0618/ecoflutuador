@@ -1,0 +1,39 @@
+# Diário de Bordo — EcoFlutuador
+
+**Data:** 05/07/2026
+
+Hoje foi identificada uma falha durante a execução do `servidor.py`. O programa apresentava uma exceção ao tentar inicializar a comunicação serial utilizando o dispositivo `/dev/video0`.
+
+Após análise, verificou-se que o erro ocorreu porque a webcam foi confundida com uma porta serial. O dispositivo `/dev/video0` corresponde à câmera, enquanto a comunicação com a ESP32 deve ocorrer por uma interface `/dev/ttyUSBx` ou `/dev/ttyACMx`.
+
+Também foi constatado que, durante os testes, apenas a Raspberry Pi e a webcam estavam conectadas, sem a presença da ESP32. Isso explicou o desaparecimento da porta serial e motivou a discussão sobre tornar o software mais robusto para funcionar mesmo sem o microcontrolador conectado.
+
+Como solução arquitetural, foi proposta a criação de um **SerialManager**, responsável por centralizar toda a comunicação serial. Essa classe deverá assumir funções como:
+
+* detectar a presença da ESP32;
+* abrir e fechar a porta serial;
+* reconectar automaticamente em caso de falha;
+* enviar comandos;
+* receber respostas;
+* informar ao restante do sistema o estado da conexão.
+
+Com essa abordagem, o restante do programa não precisará conhecer detalhes da comunicação serial, utilizando apenas métodos de alto nível, como `send()` e `connected`.
+
+A conversa evoluiu para uma proposta mais ampla de modularização do projeto. Ficou definida a intenção de dividir o sistema em módulos independentes, cada um com uma responsabilidade específica:
+
+* `servidor.py` — interface web e rotas Flask;
+* `serial_manager.py` — comunicação com a ESP32;
+* `camera.py` — captura e gerenciamento da webcam;
+* `detector.py` — visão computacional e detecção de objetos;
+* `navigator.py` — tomada de decisão e navegação autônoma.
+
+Foi discutido que esses módulos não "conversam" diretamente entre si; eles se comunicam por meio de objetos e interfaces bem definidas, reduzindo o acoplamento e facilitando futuras alterações.
+
+Por fim, foi estabelecida uma estratégia de desenvolvimento para a refatoração:
+
+1. Planejar a arquitetura antes de escrever código.
+2. Modularizar uma responsabilidade por vez.
+3. Testar o sistema após cada etapa.
+4. Priorizar o entendimento da arquitetura e dos princípios de engenharia de software, em vez de apenas produzir código funcional.
+
+A expectativa é que essa reorganização torne o EcoFlutuador mais escalável, mais fácil de manter e mais preparado para futuras expansões.

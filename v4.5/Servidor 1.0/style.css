@@ -1,0 +1,212 @@
+ * {
+     box-sizing: border-box;
+ }
+
+ body {
+     text-align: center;
+     font-family: sans-serif;
+     background: #111;
+     color: #fff;
+     margin: 0;
+     padding: 10px;
+ }
+
+ button {
+     width: 90px;
+     height: 90px;
+     margin: 5px;
+     font-size: 18px;
+     background: #222;
+     color: #fff;
+     border: 2px solid #555;
+     border-radius: 8px;
+     cursor: pointer;
+     transition: background 0.15s, border-color 0.15s;
+ }
+
+ button:active {
+     background: #444;
+ }
+
+ button:disabled {
+     opacity: 0.3;
+     cursor: not-allowed;
+ }
+
+ #cam {
+     width: 100%;
+     max-width: 640px;
+     border: 2px solid #333;
+     margin: 10px auto;
+     display: block;
+ }
+
+ #log {
+     background: #1a1a1a;
+     border: 1px solid #333;
+     border-radius: 8px;
+     max-width: 640px;
+     margin: 10px auto;
+     padding: 10px;
+     text-align: left;
+     font-size: 12px;
+     font-family: monospace;
+     height: 120px;
+     overflow-y: auto;
+     color: #0f0;
+ }
+
+ /* --- Botão de modo --- */
+ #modo-wrap {
+     max-width: 640px;
+     margin: 12px auto;
+ }
+
+ #btn-modo {
+     width: 100%;
+     height: 54px;
+     font-size: 16px;
+     font-weight: bold;
+     border-radius: 10px;
+     border: 2px solid #555;
+     background: #222;
+     color: #fff;
+     letter-spacing: 1px;
+     transition: background 0.25s, border-color 0.25s, color 0.25s;
+ }
+
+ #btn-modo.auto {
+     background: #0a3a0a;
+     border-color: #0f0;
+     color: #0f0;
+ }
+
+ #btn-modo.auto::before {
+     content: "🤖  ";
+ }
+
+ #btn-modo:not(.auto)::before {
+     content: "🕹️  ";
+ }
+
+ /* --- Potência --- */
+ .power-box {
+     max-width: 640px;
+     margin: 12px auto;
+     background: #1a1a1a;
+     border: 1px solid #333;
+     border-radius: 8px;
+     padding: 14px;
+     display: flex;
+     gap: 20px;
+ }
+
+ .motor-ctrl {
+     flex: 1;
+ }
+
+ .motor-ctrl h3 {
+     margin: 0 0 8px;
+     font-size: 14px;
+     color: #aaa;
+ }
+
+ .motor-ctrl .val {
+     font-size: 24px;
+     font-weight: bold;
+ }
+
+ #val1 {
+     color: #f90;
+ }
+
+ #val2 {
+     color: #0cf;
+ }
+
+ input[type=range] {
+     width: 100%;
+     margin: 6px 0;
+ }
+
+ #slider1 {
+     accent-color: #f90;
+ }
+
+ #slider2 {
+     accent-color: #0cf;
+ }
+
+ .status {
+     font-size: 11px;
+     color: #666;
+     min-height: 16px;
+ }
+
+ .link-btn {
+     max-width: 640px;
+     margin: 8px auto;
+     background: #1a1a1a;
+     border: 1px solid #444;
+     border-radius: 8px;
+     padding: 10px;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 10px;
+ }
+
+ .link-btn label {
+     font-size: 13px;
+     color: #aaa;
+ }
+
+ .link-btn input[type=checkbox] {
+     width: 20px;
+     height: 20px;
+     accent-color: #9f0;
+     cursor: pointer;
+ }
+
+ /* controles desabilitados no modo auto */
+ #controles {
+     transition: opacity 0.3s;
+ }
+
+ #controles.bloqueado {
+     opacity: 0.3;
+     pointer-events: none;
+ }
+
+ /* badge de modo no stream */
+ .cam-wrap {
+     position: relative;
+     max-width: 640px;
+     margin: 10px auto;
+ }
+
+ #cam {
+     margin: 0;
+     width: 100%;
+ }
+
+ #badge-modo {
+     position: absolute;
+     top: 8px;
+     left: 8px;
+     padding: 3px 10px;
+     border-radius: 20px;
+     font-size: 11px;
+     font-weight: bold;
+     letter-spacing: 1px;
+     background: #111c;
+     color: #aaa;
+     border: 1px solid #555;
+     transition: background 0.3s, color 0.3s, border-color 0.3s;
+ }
+
+ #badge-modo.auto {
+     background: #0a3a0ac0;
+     color: #0f0;
+     border-color: #0f0;
+ }
