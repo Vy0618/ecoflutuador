@@ -14,15 +14,14 @@ let modoAuto = false;
 
 // ---------- Alternar modo ----------
 function alternarModo() {
-    modoAuto = !modoAuto;
-    fetch('/set_modo?auto=' + (modoAuto ? '1' : '0'))
-        .then(r => r.json())
+    btnModo.disabled = true;
+    fetch('/set_modo?auto=' + (modoAuto ? '0' : '1'))
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(d => {
             atualizarUIMode(d.modo_auto);
         })
-        .catch(() => {
-            modoAuto = !modoAuto; // reverte se falhar
-        });
+        .catch(err => console.warn('Erro ao alterar modo:', err))
+        .finally(() => { btnModo.disabled = false; atualizarLog(); });
 }
 
 function atualizarUIMode(auto) {
@@ -90,13 +89,16 @@ function atualizarLog() {
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(data => {
             const d = document.getElementById('log');
-            d.innerHTML = data.log.join('<br>');
+            d.textContent = data.log.join('\n');
+            d.style.whiteSpace = 'pre-wrap';
             d.scrollTop = d.scrollHeight;
+            atualizarUIMode(data.modo_auto);
         })
         .catch(err => console.warn('Erro no log:', err));
 }
 
 setInterval(atualizarLog, 1000);
+atualizarLog();
 
 document.getElementById("btn-frente").addEventListener("click", () => mover("w"));
 document.getElementById("btn-esq").addEventListener("click", () => mover("a"));

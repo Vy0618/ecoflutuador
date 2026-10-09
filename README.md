@@ -15,8 +15,9 @@ simulação, testes e dashboard de dados. Há funcionalidades incompletas e
 validação física pendente. O ponto de entrada atual é
 V4/poc_raspberry/main.py. Consulte [README da V4](V4/README.md) e [guia de operação](V4/docs/OPERACAO_V4.md).
 
-v4.5/: cópia inicial da V3, destinada ao desenvolvimento incremental de um
-produto mais organizado. Ainda não contém a reconstrução proposta.
+v4.5/: evolução incremental da V3. O servidor já foi dividido em módulos para
+configuração, câmera, serial, detecção, navegação, coordenação e interface web.
+Veja a [documentação da V4.5](v4.5/README.md). O firmware ainda é legado.
 Respeite estas maiúsculas/minúsculas: os caminhos diferem em Linux.
 
 ## Ambiente virtual e dependências
@@ -99,8 +100,9 @@ Na V4, copie V4/poc_raspberry/config.yaml para config.local.yaml na mesma pasta
 e indique explicitamente o arquivo com --config. Ajuste câmera, porta serial,
 modelo e porta HTTP. Esse arquivo particular é ignorado pelo Git.
 
-V3 e v4.5 ainda têm configurações no código: revise /dev/ttyUSB0, câmera,
-caminhos /home/eco/Desktop/Object_Detection_Files e serviços antes de executar.
+V3 ainda tem configurações no código. O servidor modular da v4.5 aceita
+ECO_SERIAL_PORT, ECO_CAMERA_INDEX, ECO_MODEL_DIR, ECO_HOST e ECO_PORT.
+Revise /dev/ttyUSB0, câmera, caminhos do modelo e serviços antes de executar.
 Criar config.local.yaml não altera o funcionamento desses servidores antigos.
 Portas seriais são diferentes no Windows (COMx), Linux e macOS. A captura V4L2
 dos legados é específica de Linux; instalar dependências não a torna portátil.
