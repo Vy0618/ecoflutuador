@@ -1,4 +1,5 @@
 {
+  "headless": false,
   "camera": {
     "device_index": 0,
     "width": 640,
@@ -16,7 +17,7 @@
       "bottle"
     ]
   },
-  "detection_interval_ms": 250,
+  "detection_interval_ms": 1000,
   "image_processing": {
     "enabled": true,
     "max_width": 640,

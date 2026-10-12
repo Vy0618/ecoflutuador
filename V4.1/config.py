@@ -10,6 +10,8 @@ CONFIG_FILE = Path(__file__).resolve().with_name("config.json")
 def load_config(path=CONFIG_FILE):
     path = Path(path).resolve()
     config = json.loads(path.read_text(encoding="utf-8-sig"))
+    if type(config.setdefault("headless", False)) is not bool:
+        raise ValueError("headless deve ser booleano")
     camera = config["camera"]
     model = config["ssd_mobilenet"]
     for key in ("model_path", "config_path", "labels_path"):

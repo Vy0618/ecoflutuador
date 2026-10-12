@@ -87,8 +87,10 @@ def main():
     parser.add_argument("--log-file", type=Path, default=Path(__file__).resolve().parent / "logs" / "recognition.jsonl",
                         help="Arquivo de registros; cada registro tambem aparece no terminal")
     display = parser.add_mutually_exclusive_group()
-    display.add_argument("--display", dest="display", action="store_true")
-    display.add_argument("--no-display", dest="display", action="store_false")
+    display.add_argument("--display", "--no-headless", dest="display", action="store_true",
+                         help="Abre a janela, sobrescrevendo a configuracao headless")
+    display.add_argument("--headless", "--no-display", dest="display", action="store_false",
+                         help="Executa sem janela, mantendo reconhecimento e registros")
     parser.set_defaults(display=None)
     args = parser.parse_args()
     if bool(args.image) != bool(args.output):
@@ -117,14 +119,15 @@ def main():
                 raise OSError(f"Nao foi possivel salvar {args.output}")
             print(f"Garrafas detectadas: {len(detections)}")
             return 0
-        show = config["display"]["enabled"] if args.display is None else args.display
+        show = (config["display"]["enabled"] and not config["headless"]
+                if args.display is None else args.display)
         if show:
             gui = next((line for line in cv2.getBuildInformation().splitlines()
                         if line.strip().startswith("GUI:")), "GUI: NONE")
             if gui.split(":", 1)[1].strip() == "NONE":
                 raise RuntimeError("Instale opencv-python com GUI usando requirements.txt")
             if sys.platform.startswith("linux") and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-                raise RuntimeError("Abra em um terminal da sessao grafica, ou use --no-display")
+                raise RuntimeError("Abra em um terminal da sessao grafica, ou use --headless")
             cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)
             window_created = True
         if args.camera_index is not None:
@@ -135,7 +138,8 @@ def main():
         log.record(evento="camera", configuracao=str(args.config.resolve()),
                    fps_configurado=camera_settings.fps,
                    fps_reportado_camera=device.get(cv2.CAP_PROP_FPS),
-                   intervalo_inferencia_ms=config["detection_interval_ms"], modo="terminal")
+                   intervalo_inferencia_ms=config["detection_interval_ms"],
+                   headless=not show, modo="terminal")
         interval = config["detection_interval_ms"] / 1000
         start = time.monotonic()
         next_detection = 0

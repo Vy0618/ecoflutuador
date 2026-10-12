@@ -3,6 +3,9 @@
 venv/
 env/
 .venv_sitepackages/
+V3
+V4
+aquamonitor
 
 # Python e ferramentas
 __pycache__/

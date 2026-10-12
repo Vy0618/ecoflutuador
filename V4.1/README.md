@@ -13,6 +13,7 @@ resolvidos relativamente ao JSON, independentemente do diretorio do terminal.
 
 | Secao | O que controla |
 |---|---|
+| `headless` | `true` executa sem janela; `false` permite a janela conforme `display.enabled` |
 | `camera` | Webcam, resolucao de captura e limite de FPS da aplicacao |
 | `ssd_mobilenet` | Arquivos locais do modelo, limiar de confianca, tamanho da entrada e alvo `bottle` |
 | `detection_interval_ms` | Intervalo minimo entre inferencias, em milissegundos |
@@ -70,6 +71,18 @@ para alterar o destino. A pasta `logs/` e ignorada pelo Git.
 `Q`, `Esc` ou fechar a janela encerram. Para outra camera: `--camera-index 1`.
 Use `--config caminho/config.json` para outro perfil, ou `--no-display` para
 executar sem janela. `--duration 5` limita a execucao a cinco segundos.
+
+Para executar headless, defina `"headless": true` na raiz do `config.json` ou use:
+
+```bash
+V4.1/.venv/bin/python V4.1/object-ident.py --headless
+```
+
+O reconhecimento e os registros no terminal/arquivo continuam ativos sem abrir
+janelas ou chamar funcoes de interface grafica do OpenCV. Encerre com `Ctrl+C`
+ou limite o tempo com `--duration`. `--headless` (alias `--no-display`) e
+`--no-headless` (alias `--display`) sobrescrevem o JSON nesta execucao.
+O registro inicial da camera informa se o modo headless esta ativo.
 
 Para reconhecer uma imagem sem abrir webcam/janela:
 
