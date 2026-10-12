@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 
 from detection.types import Detection
-from regions import match_target, regions_for_frame, select_target, valid_targets
+from regions import match_target, regions_for_frame, target_order, valid_targets
 
 
 COMMANDS = {"esquerda": "d", "baixo": "s", "meio": "w", "direita": "a"}
@@ -43,21 +43,32 @@ class Navigation:
         first, second = regions.first_x, regions.second_x
         previous = self.horizontal_region
         if previous == "esquerda":
-            region = "direita" if x > second + margin else "meio" if x >= first + margin else "esquerda"
+            first += margin
+            second += margin
         elif previous == "direita":
-            region = "esquerda" if x < first - margin else "meio" if x <= second - margin else "direita"
+            first -= margin
+            second -= margin
         elif previous == "meio":
-            region = "esquerda" if x < first - margin else "direita" if x > second + margin else "meio"
+            first -= margin
+            second += margin
+
+        if x < first:
+            region = "esquerda"
+        elif x > second:
+            region = "direita"
         else:
-            region = regions.locate((x, 0))
+            region = "meio"
         self.horizontal_region = region
         return region
 
     def update(self, detections, width, height):
         regions = regions_for_frame(width, height, self.bottom_zone_ratio)
         candidates = valid_targets(detections, width, height)
-        selected = (select_target(candidates) if self.target is None else
-                    match_target(self.target, candidates, self.target_max_distance_px, self.target_min_iou))
+        if self.target is None:
+            # Maior caixa, com desempate independente da ordem das deteccoes.
+            selected = min(candidates, key=target_order, default=None)
+        else:
+            selected = match_target(self.target, candidates, self.target_max_distance_px, self.target_min_iou)
         if selected is None:
             state = "alvo_perdido" if self.target is not None else "sem_alvo"
             if self.target is not None:

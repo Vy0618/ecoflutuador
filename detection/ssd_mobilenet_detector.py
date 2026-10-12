@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List
+from collections.abc import Iterable
 
 import cv2
 import numpy as np
@@ -34,23 +34,15 @@ class SsdMobileNetDetector:
         self.input_width = input_width
         self.input_height = input_height
         self.allowed_classes = set(allowed_classes)
-        self.labels = self._load_labels(Path(labels_path))
+        self.labels = {
+            index: label.strip()
+            for index, label in enumerate(
+                Path(labels_path).read_text(encoding="utf-8").splitlines(), start=1
+            )
+            if label.strip() and not label.lstrip().startswith("#")
+        }
 
-    @staticmethod
-    def _load_labels(path: Path) -> dict[int, str]:
-        labels: dict[int, str] = {}
-        for index, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            possible_id, separator, name = line.partition(" ")
-            if separator and possible_id.isdigit():
-                labels[int(possible_id)] = name.strip()
-            else:
-                labels[index] = line
-        return labels
-
-    def detect(self, frame: np.ndarray) -> List[Detection]:
+    def detect(self, frame: np.ndarray) -> list[Detection]:
         height, width = frame.shape[:2]
         blob = cv2.dnn.blobFromImage(
             frame,
@@ -62,7 +54,7 @@ class SsdMobileNetDetector:
         )
         self.net.setInput(blob)
         output = self.net.forward()
-        detections: List[Detection] = []
+        detections: list[Detection] = []
         for result in output.reshape(-1, 7):
             confidence = float(result[2])
             if confidence < self.confidence_threshold:

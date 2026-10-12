@@ -8,20 +8,9 @@ from detection.types import Detection
 @dataclass(frozen=True)
 class Regions:
     width: int
-    height: int
     line_y: int
     first_x: int
     second_x: int
-
-    def locate(self, center, ymax=None):
-        x, y = center
-        if (y if ymax is None else ymax) >= self.line_y:
-            return "baixo"
-        if x < self.first_x:
-            return "esquerda"
-        if x > self.second_x:
-            return "direita"
-        return "meio"
 
 
 def regions_for_frame(width, height, bottom_zone_ratio=0.8):
@@ -30,10 +19,10 @@ def regions_for_frame(width, height, bottom_zone_ratio=0.8):
     if not 0 < bottom_zone_ratio < 1:
         raise ValueError("A linha horizontal deve estar dentro da imagem")
     third = width // 3
-    return Regions(width, height, min(height - 1, max(1, int(height * bottom_zone_ratio))), third, 2 * third)
+    return Regions(width, min(height - 1, max(1, int(height * bottom_zone_ratio))), third, 2 * third)
 
 
-def valid_targets(detections, width=None, height=None):
+def valid_targets(detections, width, height):
     targets = []
     for item in detections:
         if not isinstance(item, Detection) or item.class_name != "bottle":
@@ -43,8 +32,7 @@ def valid_targets(detections, width=None, height=None):
             finite = all(math.isfinite(value) for value in (*item.bbox, item.confidence))
             valid = (finite and 0 <= item.confidence <= 1 and
                      0 <= x1 < x2 and 0 <= y1 < y2 and
-                     (width is None or x2 <= width) and
-                     (height is None or y2 <= height))
+                     x2 <= width and y2 <= height)
         except (TypeError, ValueError):
             valid = False
         if valid:
@@ -55,11 +43,6 @@ def valid_targets(detections, width=None, height=None):
 def target_order(item):
     x1, y1, x2, y2 = item.bbox
     return (-(x2 - x1) * (y2 - y1), -item.confidence, x1, y1, x2, y2)
-
-
-def select_target(detections):
-    """Maior caixa, com desempate independente da ordem das deteccoes."""
-    return min(valid_targets(detections), key=target_order, default=None)
 
 
 def match_target(previous, detections, max_distance, min_iou):

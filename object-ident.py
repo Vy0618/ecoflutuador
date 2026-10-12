@@ -49,9 +49,9 @@ def annotate(frame, detections, bottom_zone_ratio=0.8, navigation=None):
     scale = .6 * min(1, width / 640)
     for label, center_x, text_y in (
         (f"ESQUERDA [{COMMANDS['esquerda']}]", zone_width // 2, 25),
-        ("MEIO [w]", zone_width + zone_width // 2, 25),
+        (f"MEIO [{COMMANDS['meio']}]", zone_width + zone_width // 2, 25),
         (f"DIREITA [{COMMANDS['direita']}]", (2 * zone_width + width) // 2, 25),
-        ("BAIXO [s]", width // 2, line_y + (height - line_y) // 2),
+        (f"BAIXO [{COMMANDS['baixo']}]", width // 2, line_y + (height - line_y) // 2),
     ):
         text_width = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, 1)[0][0]
         position = (max(0, center_x - text_width // 2), min(height - 4, text_y))
@@ -160,7 +160,7 @@ def main():
         last_shape = None
         result = None
         while args.duration is None or time.monotonic() - start < args.duration:
-            frame = camera.read(copy=False)
+            frame = camera.read()
             now = time.monotonic()
             if now >= next_detection or frame.shape != last_shape:
                 detections = detect_frame(detector, frame, config)

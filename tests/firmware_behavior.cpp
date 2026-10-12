@@ -3,7 +3,7 @@
 #include "ControleESP32.ino"
 
 void send(const std::string& message) {
-  for (char byte : message) Serial.input.push_back(byte);
+  for (char byte : message) SerialComando.input.push_back(byte);
   loop();
 }
 
@@ -27,15 +27,30 @@ void expectPulses(int first, int second) {
 
 int main() {
   setup();
+  assert(SerialComando.baud == 115200);
+#if ECO_SERIAL_USB
+  assert(&SerialComando == &Serial);
+  assert(Serial2.baud == 0);
+#else
+  assert(&SerialComando == &Serial2);
+  assert(SerialComando.config == SERIAL_8N1);
+  assert(SerialComando.rxPin == 16 && SerialComando.txPin == 17);
+  // A porta de diagnostico nao pode introduzir outro controlador dos motores.
+  Serial.input.push_back('w');
+  Serial.input.push_back('\n');
+#endif
   expectPulses(1000, 1000);
   send("a\n");
   assert(!armado && comandoAtual == 's');
-  assert(Serial.output.find("ERROR:ESC_ARMANDO") != std::string::npos);
+  assert(SerialComando.output.find("ERROR:ESC_ARMANDO") != std::string::npos);
   send("h\n");
   assert(!armado && comandoAtual == 's');
   testClock += 3000;
   loop();
-  assert(armado && Serial.output.find("READY") != std::string::npos);
+  assert(armado && SerialComando.output.find("READY") != std::string::npos);
+  assert(comandoAtual == 's');
+  send("?\n");
+  assert(SerialComando.output.find("CAPS:HEARTBEAT") != std::string::npos);
 
   send("a\n");
   assert(comandoAtual == 'a');
@@ -57,14 +72,14 @@ int main() {
   send("h\n");
   assert(comandoAtual == 'w');
   assert(alvo1 == 1300 && alvo2 == 1300);
-  assert(Serial.output.find("HB_OK") != std::string::npos);
+  assert(SerialComando.output.find("HB_OK") != std::string::npos);
   testClock = ultimoComando + 2500;
   loop();
   expectPulses(1300, 1300);
   testClock = ultimoComando + 3000;
   loop();
   expectPulses(1000, 1000);
-  assert(Serial.output.find("TIMEOUT:s") != std::string::npos);
+  assert(SerialComando.output.find("TIMEOUT:s") != std::string::npos);
   send("h\n");
   expectPulses(1000, 1000);
   assert(comandoAtual == 's');
@@ -72,7 +87,7 @@ int main() {
   send("w\n");
   settle();
   send("?\n");
-  assert(Serial.output.find("CAPS:HEARTBEAT") != std::string::npos);
+  assert(SerialComando.output.find("CAPS:HEARTBEAT") != std::string::npos);
   expectPulses(1000, 1000);
   send("w\n");
   settle();

@@ -32,9 +32,6 @@ class FakeSerial:
     def readline(self):
         return self.replies.popleft() if self.replies else b""
 
-    def reset_input_buffer(self):
-        self.replies.clear()
-
     def close(self):
         self.closed = True
 

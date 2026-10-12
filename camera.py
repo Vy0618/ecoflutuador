@@ -46,8 +46,7 @@ class LatestFrameCamera:
         self.condition = Condition()
         self.stopped = Event()
         self.frame = None
-        self.sequence = 0
-        self.consumed = 0
+        self.fresh_frame = False
         self.error = None
         self.thread = Thread(target=self._capture, name="camera", daemon=True)
         self.thread.start()
@@ -60,14 +59,15 @@ class LatestFrameCamera:
                     raise RuntimeError("Não foi possível ler um frame da câmera.")
                 with self.condition:
                     self.frame = frame
-                    self.sequence += 1
+                    self.fresh_frame = True
                     self.condition.notify_all()
         except Exception as error:
             with self.condition:
                 self.error = error
                 self.condition.notify_all()
 
-    def read(self, *, copy: bool = True):
+    def read(self):
+        """Entrega o frame mais recente; o consumidor deve tratá-lo como somente leitura."""
         # Mantem a captura drenada; limita apenas a entrega do frame mais recente.
         if self.last_delivery is not None:
             remaining = self.last_delivery + self.frame_interval - time.monotonic()
@@ -75,17 +75,16 @@ class LatestFrameCamera:
                 raise RuntimeError("Camera encerrada")
         with self.condition:
             ready = self.condition.wait_for(
-                lambda: self.sequence != self.consumed or self.error is not None,
+                lambda: self.fresh_frame or self.error is not None,
                 timeout=5,
             )
             if self.error is not None:
                 raise RuntimeError("Falha na captura da câmera.") from self.error
             if not ready:
                 raise RuntimeError("A câmera não entregou um frame em 5 segundos.")
-            self.consumed = self.sequence
+            self.fresh_frame = False
             self.last_delivery = time.monotonic()
-            # Com copy=False, o consumidor nao deve alterar o frame compartilhado.
-            return self.frame.copy() if copy else self.frame
+            return self.frame
 
     def close(self):
         self.stopped.set()
