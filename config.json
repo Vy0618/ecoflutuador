@@ -1,0 +1,34 @@
+{
+  "camera": {
+    "device_index": 0,
+    "width": 640,
+    "height": 480,
+    "fps": 30
+  },
+  "ssd_mobilenet": {
+    "model_path": "models/frozen_inference_graph.pb",
+    "config_path": "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
+    "labels_path": "models/coco.names",
+    "confidence_threshold": 0.45,
+    "input_width": 320,
+    "input_height": 320,
+    "detection_types": [
+      "bottle"
+    ]
+  },
+  "detection_interval_ms": 300,
+  "image_processing": {
+    "enabled": true,
+    "max_width": 640,
+    "max_height": 480
+  },
+  "display": {
+    "bottom_zone_ratio": 0.8
+  },
+  "navigation": {
+    "horizontal_hysteresis_ratio": 0.03,
+    "target_max_distance_px": 90,
+    "target_min_iou": 0.1,
+    "target_missing_frames": 3
+  }
+}

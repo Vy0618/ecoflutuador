@@ -1,4 +1,0 @@
-{"timestamp": "2026-09-17T02:00:00.202338+00:00", "level": "ERROR", "logger": "core.camera", "message": "Camera lock unavailable: [Errno 30] Read-only file system: '/run/user/1000/eco-camera-0.lock'"}
-{"timestamp": "2026-09-17T02:00:00.202493+00:00", "level": "ERROR", "logger": "__main__", "message": "Failed to start camera"}
-
-Reexecução autorizada fora do sandbox: exit1. OpenCV VIDEOIO(V4L2:/dev/video0) cannot open camera by index; backend disponível mas câmera inacessível. Camera stopped; Failed to start camera. Nenhuma serial aberta.

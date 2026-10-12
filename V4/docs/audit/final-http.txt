@@ -1,7 +1,0 @@
-{"route": "/", "status": 200, "bytes": 3617}
-{"route": "/health", "status": 200, "bytes": 46}
-{"route": "/status", "status": 200, "bytes": 644}
-{"route": "/telemetry", "status": 200, "bytes": 551}
-{"route": "/history", "status": 200, "bytes": 1654}
-{"route": "/diagnostics", "status": 200, "bytes": 541}
-HTTP integration and graceful STOP passed; no hardware

@@ -1,4 +1,0 @@
-# Use no venv de visualizacao; nao instalar junto de opencv-python-headless.
--r requirements.txt
-opencv-python>=4.8,<5
-numpy>=1.24,<3

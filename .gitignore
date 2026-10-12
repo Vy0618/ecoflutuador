@@ -38,3 +38,12 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+/aquamonitor/
+/V3/
+/V4/
+
+# Projeto principal e ambiente anterior preservado
+logs/
+.pio/
+/.venv-anterior/

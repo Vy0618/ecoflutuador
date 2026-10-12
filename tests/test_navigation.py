@@ -1,0 +1,198 @@
+import contextlib
+from datetime import datetime
+import io
+import json
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from zoneinfo import ZoneInfo
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from command_log import CommandLog
+from detection.types import Detection
+from navigation import Navigation, record_navigation
+
+
+def bottle(x, y, size=20):
+    return Detection("bottle", .95, (x - size // 2, y - size // 2,
+                                     x + size // 2, y + size // 2))
+
+
+class NavigationTests(unittest.TestCase):
+    def test_four_regions_at_multiple_resolutions(self):
+        for width, height in ((640, 480), (1280, 960), (321, 241)):
+            for x, y, region, command in ((.15, .3, "esquerda", "d"),
+                                          (.5, .3, "meio", "w"),
+                                          (.85, .3, "direita", "a"),
+                                          (.5, .9, "baixo", "s")):
+                with self.subTest(width=width, region=region):
+                    result = Navigation().update([bottle(int(width*x), int(height*y))], width, height)
+                    self.assertEqual((result.region, result.command), (region, command))
+
+    def test_bottom_overrides_horizontal_position(self):
+        for x in (80, 320, 560):
+            result = Navigation().update([bottle(x, 384)], 640, 480)
+            self.assertEqual((result.region, result.command), ("baixo", "s"))
+
+    def test_boundary_boxes_use_their_center(self):
+        for x, region in ((212, "esquerda"), (213, "meio"), (426, "meio"), (427, "direita")):
+            result = Navigation().update([bottle(x, 100, 60)], 640, 480)
+            self.assertEqual(result.region, region)
+
+    def test_largest_area_uses_xyxy_dimensions(self):
+        small_right = Detection("bottle", .99, (500, 300, 520, 320))
+        large_left = Detection("bottle", .8, (20, 20, 120, 220))
+        result = Navigation().update([small_right, large_left], 640, 480)
+        self.assertIs(result.selected, large_left)
+        self.assertEqual(result.command, "d")
+
+    def test_command_changes_and_missing_target(self):
+        navigation = Navigation()
+        self.assertTrue(navigation.update([bottle(80, 100)], 640, 480).changed)
+        self.assertFalse(navigation.update([bottle(90, 100)], 640, 480).changed)
+        result = navigation.update([], 640, 480)
+        self.assertEqual((result.region, result.command, result.changed), (None, "s", True))
+        self.assertFalse(navigation.stop().changed)
+
+    def test_bottom_uses_ymax_and_latches_stop_when_box_retreats(self):
+        navigation = Navigation()
+        near = Detection("bottle", .9, (290, 250, 350, 384))
+        result = navigation.update([near], 640, 480)
+        self.assertLess(near.centroid[1], 384)
+        self.assertEqual((result.region, result.command), ("baixo", "s"))
+        retreat = Detection("bottle", .9, (290, 240, 350, 374))
+        result = navigation.update([retreat], 640, 480)
+        self.assertEqual(result.command, "s")
+        self.assertTrue(result.approach_complete)
+        self.assertEqual(result.state, "aproximacao_encerrada")
+
+    def test_larger_other_object_does_not_replace_current_target(self):
+        navigation = Navigation()
+        original = bottle(80, 100, 40)
+        navigation.update([original], 640, 480)
+        followed = bottle(85, 105, 40)
+        other = bottle(550, 100, 100)
+        result = navigation.update([other, followed], 640, 480)
+        self.assertIs(result.selected, followed)
+        self.assertEqual(result.command, "d")
+
+    def test_initial_tie_is_independent_of_input_order(self):
+        left, right = bottle(80, 100), bottle(550, 100)
+        for detections in ([left, right], [right, left]):
+            result = Navigation().update(detections, 640, 480)
+            self.assertIs(result.selected, left)
+
+    def test_lost_target_stops_immediately_and_delays_switch(self):
+        navigation = Navigation(target_missing_frames=3)
+        original, other = bottle(80, 100), bottle(550, 100)
+        navigation.update([original], 640, 480)
+        for _ in range(3):
+            result = navigation.update([other], 640, 480)
+            self.assertEqual(result.command, "s")
+            self.assertIsNone(result.selected)
+        result = navigation.update([other], 640, 480)
+        self.assertIs(result.selected, other)
+        self.assertEqual(result.command, "a")
+
+    def test_brief_loss_reacquires_same_target(self):
+        navigation = Navigation()
+        navigation.update([bottle(80, 100)], 640, 480)
+        self.assertEqual(navigation.update([], 640, 480).command, "s")
+        result = navigation.update([bottle(90, 100), bottle(550, 100, 80)], 640, 480)
+        self.assertEqual(result.selected.centroid[0], 90)
+        self.assertEqual(result.command, "d")
+
+    def test_completed_target_is_released_only_after_confirmed_disappearance(self):
+        navigation = Navigation(target_missing_frames=2)
+        navigation.update([bottle(320, 380)], 640, 480)
+        navigation.update([], 640, 480)
+        result = navigation.update([bottle(320, 370)], 640, 480)
+        self.assertTrue(result.approach_complete)
+        self.assertEqual(result.command, "s")
+        navigation.update([], 640, 480)
+        navigation.update([], 640, 480)
+        result = navigation.update([bottle(80, 100)], 640, 480)
+        self.assertFalse(result.approach_complete)
+        self.assertEqual(result.command, "d")
+
+    def test_hysteresis_at_both_horizontal_dividers(self):
+        for positions, expected in (
+            ([200, 215, 225, 235, 210, 200, 190], ["d", "d", "d", "w", "w", "w", "d"]),
+            ([440, 420, 410, 400, 430, 440, 450], ["a", "a", "a", "w", "w", "w", "a"]),
+        ):
+            navigation = Navigation()
+            actual = [navigation.update([bottle(x, 100)], 640, 480).command for x in positions]
+            self.assertEqual(actual, expected)
+
+    def test_brief_loss_preserves_horizontal_hysteresis(self):
+        navigation = Navigation()
+        navigation.update([bottle(200, 100)], 640, 480)
+        navigation.update([], 640, 480)
+        self.assertEqual(navigation.update([bottle(215, 100)], 640, 480).command, "d")
+
+    def test_invalid_non_bottle_and_out_of_frame_boxes_stop(self):
+        invalid = [
+            Detection("can", .95, (10, 10, 30, 30)),
+            Detection("bottle", .95, (30, 10, 10, 30)),
+            Detection("bottle", .95, (-1, 10, 30, 30)),
+            Detection("bottle", .95, (10, 10, 641, 30)),
+            Detection("bottle", .95, (10, 10, 30, 481)),
+            Detection("bottle", float("nan"), (10, 10, 30, 30)),
+            Detection("bottle", .95, (10, 10, float("inf"), 30)),
+            Detection("bottle", .95, (10, 10, 10, 30)),
+        ]
+        result = Navigation().update(invalid, 640, 480)
+        self.assertEqual((result.command, result.selected), ("s", None))
+
+    def test_zero_iou_threshold_does_not_match_remote_object(self):
+        navigation = Navigation(target_min_iou=0)
+        navigation.update([bottle(80, 100)], 640, 480)
+        self.assertEqual(navigation.update([bottle(550, 100)], 640, 480).command, "s")
+
+    def test_autonomous_approach_updates_until_bottom(self):
+        navigation = Navigation(target_max_distance_px=300)
+        positions = [(80, 100), (250, 100), (470, 100), (480, 300), (480, 375), (480, 360)]
+        commands = [navigation.update([bottle(x, y)], 640, 480).command for x, y in positions]
+        self.assertEqual(commands, ["d", "w", "a", "a", "s", "s"])
+
+    def test_each_inference_is_logged_to_terminal_and_file(self):
+        with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()) as terminal:
+            path = Path(temporary) / "commands.jsonl"
+            log = CommandLog(path)
+            navigation = Navigation()
+            detections = [bottle(80, 100)]
+            for _ in range(2):
+                result = navigation.update(detections, 640, 480)
+                record_navigation(log, result, detections)
+            record_navigation(log, navigation.stop(), [], event="encerramento")
+            log.close()
+            records = [json.loads(line) for line in path.read_text().splitlines()]
+            expected_blocks = []
+            for item in records:
+                timestamp = datetime.fromisoformat(item["timestamp"]).astimezone(
+                    ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d-%H-%S")
+                expected_blocks.append(
+                    f"timestamp: {timestamp}\nregiao: {item['regiao']}\n"
+                    f"objeto: {item['objeto'] or 'nenhum'}\ngarrafas_detectadas: {item['garrafas_detectadas']}\n"
+                    f"comando: {item['comando']}\n\n")
+            self.assertEqual(terminal.getvalue(), "".join(expected_blocks))
+            self.assertEqual([item["comando"] for item in records], ["d", "d", "s"])
+            self.assertEqual([item["mudou_comando"] for item in records], [True, False, True])
+            self.assertEqual([item["registro"] for item in records], [1, 2, 3])
+            self.assertEqual(records[-1]["evento"], "encerramento")
+
+    def test_camera_and_errors_are_saved_without_detection_blocks(self):
+        with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()) as terminal:
+            path = Path(temporary) / "commands.jsonl"
+            log = CommandLog(path)
+            log.record(evento="camera", fps_configurado=15)
+            log.record(evento="erro", mensagem="Camera indisponivel", comando="s")
+            log.close()
+            self.assertEqual(terminal.getvalue(), "")
+            records = [json.loads(line) for line in path.read_text().splitlines()]
+            self.assertEqual([item["evento"] for item in records], ["camera", "erro"])
+
+
+if __name__ == "__main__":
+    unittest.main()
