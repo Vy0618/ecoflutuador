@@ -15,9 +15,10 @@ simulação, testes e dashboard de dados. Há funcionalidades incompletas e
 validação física pendente. O ponto de entrada atual é
 V4/poc_raspberry/main.py. Consulte [README da V4](V4/README.md) e [guia de operação](V4/docs/OPERACAO_V4.md).
 
-v4.5/: evolução incremental da V3. O servidor já foi dividido em módulos para
-configuração, câmera, serial, detecção, navegação, coordenação e interface web.
-Veja a [documentação da V4.5](v4.5/README.md). O firmware ainda é legado.
+v4.5/: evolução incremental da V3 com ciclo autônomo por ultrassônico, confirmação
+temporal, timeouts, firmware mínimo e simulação por terminal. Detecção, curadoria,
+controle e backend são separados; eventos ficam no SQLite para envio posterior.
+Veja instalação, exemplos e limites na [documentação da V4.5](v4.5/README.md).
 Respeite estas maiúsculas/minúsculas: os caminhos diferem em Linux.
 
 ## Ambiente virtual e dependências
@@ -62,14 +63,21 @@ Com o ambiente ativado, a partir da raiz:
 
 ```
 python -c "import cv2, numpy, flask, serial, yaml; print('Dependências OK')"
+python -m unittest discover -s v4.5/tests -v
+python v4.5/servidor.py simulate --all-scenarios
 python -m unittest discover -s V4/poc_raspberry/tests -v
 python V4/poc_raspberry/mock/run_mock.py --frames 100 --fps 10 --quiet
 ```
 
 A suíte inclui testes C++ nativos: g++ precisa estar disponível para executá-los.
 No Debian/Ubuntu, ele é fornecido pelo pacote build-essential.
+Node.js permite executar as regressões do JavaScript; quando ausente, esse teste
+é marcado como ignorado. Essas ferramentas não são instaladas pelo pip.
 O runner mock acima não abre câmera, UART física nem servidor HTTP.
-Os 88 testes e uma execução simulada passaram no ambiente de referência.
+Na revisão da V4.5 passaram 84 testes e cinco cenários JSONL; veja as
+[correções e comandos de reprodução](v4.5/docs/CORRECOES.md).
+O registro anterior da V4 contém
+88 testes e uma execução simulada aprovados no ambiente de referência.
 Simulação não comprova o funcionamento de sensores, câmera ou motores reais.
 
 ## OpenCV e Raspberry Pi
@@ -100,10 +108,12 @@ Na V4, copie V4/poc_raspberry/config.yaml para config.local.yaml na mesma pasta
 e indique explicitamente o arquivo com --config. Ajuste câmera, porta serial,
 modelo e porta HTTP. Esse arquivo particular é ignorado pelo Git.
 
-V3 ainda tem configurações no código. O servidor modular da v4.5 aceita
-ECO_SERIAL_PORT, ECO_CAMERA_INDEX, ECO_MODEL_DIR, ECO_HOST e ECO_PORT.
+V3 ainda tem configurações no código. Na V4.5, copie v4.5/config.yaml para
+v4.5/config.local.yaml e execute servidor.py com --config v4.5/config.local.yaml.
+Paths são relativos ao YAML. A aplicação também aceita ECO_SERIAL_PORT,
+ECO_CAMERA_INDEX, ECO_CAMERA_BACKEND, ECO_MODEL_DIR, ECO_HOST e ECO_PORT.
 Revise /dev/ttyUSB0, câmera, caminhos do modelo e serviços antes de executar.
-Criar config.local.yaml não altera o funcionamento desses servidores antigos.
+O YAML local só é usado quando indicado com --config.
 Portas seriais são diferentes no Windows (COMx), Linux e macOS. A captura V4L2
 dos legados é específica de Linux; instalar dependências não a torna portátil.
 No Linux, verifique acesso aos dispositivos serial e vídeo (normalmente grupos
@@ -112,14 +122,17 @@ dialout e video). Alterações de grupos exigem nova sessão do usuário.
 Firmware precisa do core Arduino ESP32 e ESP32Servo; a V4 também requer
 TinyGPSPlus. Esses componentes não são instalados pelo pip. Para a V4, consulte
 V4/PINAGEM_V4.md e o helper V4/tools/compile_firmware.py. Registre versões do
-core, bibliotecas e placa ao validar uma compilação.
+core, bibliotecas e placa ao validar uma compilação. A V4.5 usa apenas ESP32Servo
+e seu helper v4.5/tools/compile_firmware.py. Motores vêm desabilitados na compilação
+padrão; consulte o README da versão para a etapa de bancada.
 
 ## Limitações atuais
 
 O par de pesos/configuração do detector legado em V4/poc_raspberry/models
 não carrega no ambiente verificado: erro Const input blob for weights not found.
-Instalar requirements.txt não corrige esse modelo. A V3 e a cópia v4.5 apontam
-para modelos em caminhos externos, que também precisam ser disponibilizados.
+Instalar requirements.txt não corrige esse modelo. A V3 usa caminhos externos;
+a V4.5 configura pesos, pbtxt e classes no YAML e precisa de arquivos compatíveis,
+que não acompanham essa versão. Simulação V4.5 não precisa de modelo real.
 Os modelos existentes não fornecem todas as classes propostas para a V4.
 
 Não execute várias versões simultaneamente: elas podem disputar câmera,

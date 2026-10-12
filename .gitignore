@@ -27,6 +27,7 @@ build/
 dist/
 *.log
 *.log.*
+v4.5/data/
 
 # Arquivos do sistema e editor
 .DS_Store

@@ -1,0 +1,52 @@
+{
+  "source_project": "aquamonitor",
+  "configuration_source": "aquamonitor/aquamonitor.json",
+  "configuration_adjustments": [
+    "Caminhos locais relativos ao config.json",
+    "Janela habilitada para reconhecimento local"
+  ],
+  "files": [
+    {
+      "source": "aquamonitor/backend/detection/models/frozen_inference_graph.pb",
+      "destination": "models/frozen_inference_graph.pb",
+      "sha256": "3c95e720eed1bbaf264048ab8fbe6765e5b3a64fafe64020cd53ecd14ccf2c58",
+      "identical_to_source": true
+    },
+    {
+      "source": "aquamonitor/backend/detection/models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
+      "destination": "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
+      "sha256": "1b66fa9884a25a1a12ab688b8c5fc4a41143d2111d89f7cd1c1536707a3ef1f6",
+      "identical_to_source": true
+    },
+    {
+      "source": "aquamonitor/backend/detection/models/coco.names",
+      "destination": "models/coco.names",
+      "sha256": "8925173e1b0aabfaefda27de2bb908233bb8fb6e7582323d72988e4be15a5f0b",
+      "identical_to_source": true
+    },
+    {
+      "source": "aquamonitor/backend/detection/ssd_mobilenet_detector.py",
+      "destination": "detection/ssd_mobilenet_detector.py",
+      "sha256": "a7f3ede594848c007ff39eeb446bbff73e83d1fccb084c09ab787637da33d818",
+      "adjustment": "import local"
+    },
+    {
+      "source": "aquamonitor/backend/detection/types.py",
+      "destination": "detection/types.py",
+      "sha256": "99135baaad821b4ed1cb7d32b7a20875c34521774a3dc0ce76ac84756aae3baa",
+      "adjustment": null
+    },
+    {
+      "source": "aquamonitor/backend/camera/webcam_config.py",
+      "destination": "camera.py",
+      "sha256": "436aa12fe68482e8a749fc2b78cf7e7f97adf61d7dfb7a99c5b23e1d380891a8",
+      "adjustment": null
+    },
+    {
+      "source": "aquamonitor/backend/camera/image_processing.py",
+      "destination": "image_processing.py",
+      "sha256": "4824f8e79ab013a77a9233a818f94530599538d2d00b07b525aae8e3c0dae65c",
+      "adjustment": "import local"
+    }
+  ]
+}

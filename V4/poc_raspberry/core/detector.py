@@ -18,6 +18,9 @@ class ModelConfig:
     conf_threshold: float = 0.45
     nms_threshold: float = 0.2
     target_classes: List[str] = None
+    input_scale: float = 1.0 / 127.5
+    input_mean: Tuple[float, float, float] = (127.5, 127.5, 127.5)
+    class_filter: Optional[List[str]] = None
 
     def __post_init__(self):
         if self.target_classes is None:
@@ -68,8 +71,8 @@ class Detector:
         # Load model
         self._net = cv2.dnn_DetectionModel(self.config.weights, self.config.config)
         self._net.setInputSize(*self.config.input_size)
-        self._net.setInputScale(1.0 / 127.5)
-        self._net.setInputMean((127.5, 127.5, 127.5))
+        self._net.setInputScale(self.config.input_scale)
+        self._net.setInputMean(self.config.input_mean)
         self._net.setInputSwapRB(True)
 
         self._logger.info(f"Model loaded: {len(self._class_names)} classes, input {self.config.input_size}")
@@ -78,7 +81,7 @@ class Detector:
     def detect(self, frame) -> List[Detection]:
         """
         Run inference on frame.
-        Returns all recognized classes; navigation policy is external.
+        Returns recognized classes, optionally restricted by class_filter.
         """
         if self._net is None:
             raise RuntimeError("Detector not initialized")
@@ -93,6 +96,8 @@ class Detector:
         if len(class_ids) > 0:
             for class_id, confidence, box in zip(class_ids.flatten(), confidences.flatten(), boxes):
                 class_name = self._class_names[class_id - 1]  # COCO is 1-indexed
+                if self.config.class_filter is not None and class_name not in self.config.class_filter:
+                    continue
                 # Return all classes; the decision policy chooses targets/fauna.
                 x, y, w, h = map(int, box)
                 detections.append(Detection(
