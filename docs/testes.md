@@ -83,6 +83,19 @@ O caminho depende da instalação de cada máquina. O
 [guia do PlatformIO](https://docs.platformio.org/en/latest/core/installation/troubleshooting.html#multiple-platformio-cores-in-a-system)
 descreve os conflitos entre versões instaladas.
 
+Neste ambiente local, `.venv/bin/pio` também aponta para o PlatformIO 6.1.19.
+Reative o venv e limpe o cache de comandos do Bash para usar esse caminho:
+
+```bash
+source .venv/bin/activate
+hash -r
+command -v pio
+pio --version
+```
+
+O caminho esperado é o `pio` dentro de `.venv/bin/`. Esse vínculo pertence ao
+ambiente local; ao criar um novo venv em outra máquina, prepare o PlatformIO nela.
+
 ## Seleção de OLED ou motores
 
 A seleção da saída é feita em
@@ -496,6 +509,30 @@ a configuração JSON ajusta o reconhecimento.
 GPIO 12 participa da configuração de boot da ESP32. Se a placa deixar de
 inicializar com o ESC conectado, confira o nível imposto a esse pino, conforme
 o [datasheet do ESP32](https://documentation.espressif.com/esp32_datasheet_en.html).
+
+### Timeout ao aguardar READY
+
+Se `Esp32Link('/dev/ttyAMA0')` abrir a porta, mas não receber `READY` em oito
+segundos, confira o canal usado pela ligação:
+
+- **Raspberry por RX2/TX2:** grave o perfil `esp32`, com o padrão
+  `ECO_SERIAL_USB=0`. O perfil `esp32-usb` recebe pelo cabo USB.
+- **Cabo USB:** use o perfil `esp32-usb` e a porta USB identificada por
+  `serial.tools.list_ports`, como `/dev/ttyUSB0` ou `/dev/ttyACM0`.
+- **UART dos GPIOs:** confira o overlay `uart0-pi5`, a porta `/dev/ttyAMA0`,
+  TX da Pi → RX2 da ESP32, RX da Pi ← TX2 da ESP32 e GND comum.
+
+Com o reconhecimento fechado, consulte a porta manualmente:
+
+```bash
+.venv/bin/python -m serial.tools.miniterm /dev/ttyAMA0 115200 --eol LF
+```
+
+Envie `?` e pressione Enter. O firmware atual responde `CAPS:HEARTBEAT` e
+`READY` quando está pronto, ou `ARMING` durante a inicialização. Sem resposta,
+confira firmware, porta, ligação e alimentação. Se aparecer `ERROR:OLED`,
+a inicialização da tela falhou. Feche o monitor com `Ctrl+]` antes de repetir
+o teste com `Esp32Link`.
 
 ## Logs e acompanhamento
 
