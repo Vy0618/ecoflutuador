@@ -16,6 +16,9 @@ durante a aproximação e depois da parada.
 As instruções de instalação, setup e testes estão em
 [docs/testes.md](docs/testes.md).
 
+Para estudar os arquivos e a comunicação serial, consulte o
+[guia de estudo do código](docs/estudo_do_codigo.md).
+
 ## Bibliotecas utilizadas
 
 ### Programa Python
