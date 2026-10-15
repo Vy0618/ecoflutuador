@@ -22,10 +22,10 @@ def regions_for_frame(width, height, bottom_zone_ratio=0.8):
     return Regions(width, min(height - 1, max(1, int(height * bottom_zone_ratio))), third, 2 * third)
 
 
-def valid_targets(detections, width, height):
+def valid_targets(detections, width, height, allowed_classes=("bottle",)):
     targets = []
     for item in detections:
-        if not isinstance(item, Detection) or item.class_name != "bottle":
+        if not isinstance(item, Detection) or item.class_name not in allowed_classes:
             continue
         try:
             x1, y1, x2, y2 = item.bbox
@@ -42,7 +42,7 @@ def valid_targets(detections, width, height):
 
 def target_order(item):
     x1, y1, x2, y2 = item.bbox
-    return (-(x2 - x1) * (y2 - y1), -item.confidence, x1, y1, x2, y2)
+    return (-(x2 - x1) * (y2 - y1), -item.confidence, x1, y1, x2, y2, item.class_name)
 
 
 def match_target(previous, detections, max_distance, min_iou):
@@ -52,6 +52,8 @@ def match_target(previous, detections, max_distance, min_iou):
     previous_area = (px2 - px1) * (py2 - py1)
     pcx, pcy = previous.centroid
     for item in detections:
+        if item.class_name != previous.class_name:
+            continue
         x1, y1, x2, y2 = item.bbox
         intersection = max(0, min(px2, x2) - max(px1, x1)) * max(0, min(py2, y2) - max(py1, y1))
         area = (x2 - x1) * (y2 - y1)

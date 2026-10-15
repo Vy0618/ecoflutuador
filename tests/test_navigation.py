@@ -20,6 +20,27 @@ def bottle(x, y, size=20):
 
 
 class NavigationTests(unittest.TestCase):
+    def test_configured_cell_phone_generates_all_four_commands(self):
+        for x, y, command in ((80, 100, "d"), (320, 100, "w"),
+                              (560, 100, "a"), (320, 384, "s")):
+            with self.subTest(command=command):
+                phone = Detection("cell phone", .95, (x - 10, y - 10, x + 10, y + 10))
+                result = Navigation(allowed_classes=["cell phone"]).update([phone], 640, 480)
+                self.assertEqual(result.command, command)
+                self.assertIs(result.selected, phone)
+        result = Navigation(allowed_classes=["cell phone"]).update([bottle(80, 100)], 640, 480)
+        self.assertEqual((result.command, result.selected), ("s", None))
+
+    def test_target_association_keeps_its_class_when_other_class_is_near(self):
+        navigation = Navigation(allowed_classes=["bottle", "cell phone"])
+        phone = Detection("cell phone", .95, (60, 80, 100, 120))
+        navigation.update([phone], 640, 480)
+        larger_bottle = bottle(80, 100, 100)
+        result = navigation.update([larger_bottle, phone], 640, 480)
+        self.assertIs(result.selected, phone)
+        result = navigation.update([larger_bottle], 640, 480)
+        self.assertEqual((result.command, result.selected), ("s", None))
+
     def test_four_regions_at_multiple_resolutions(self):
         for width, height in ((640, 480), (1280, 960), (321, 241)):
             for x, y, region, command in ((.15, .3, "esquerda", "d"),
@@ -55,17 +76,38 @@ class NavigationTests(unittest.TestCase):
         self.assertEqual((result.region, result.command, result.changed), (None, "s", True))
         self.assertFalse(navigation.stop().changed)
 
-    def test_bottom_uses_ymax_and_latches_stop_when_box_retreats(self):
+    def test_bottom_uses_center_and_latches_stop_when_box_retreats(self):
         navigation = Navigation()
-        near = Detection("bottle", .9, (290, 250, 350, 384))
+        near = Detection("bottle", .9, (290, 340, 350, 428))
         result = navigation.update([near], 640, 480)
-        self.assertLess(near.centroid[1], 384)
+        self.assertEqual(near.centroid[1], 384)
         self.assertEqual((result.region, result.command), ("baixo", "s"))
-        retreat = Detection("bottle", .9, (290, 240, 350, 374))
+        retreat = Detection("bottle", .9, (290, 330, 350, 418))
         result = navigation.update([retreat], 640, 480)
         self.assertEqual(result.command, "s")
         self.assertTrue(result.approach_complete)
         self.assertEqual(result.state, "aproximacao_encerrada")
+
+    def test_box_tip_can_enter_bottom_while_center_keeps_horizontal_command(self):
+        for class_name in ("bottle", "cell phone"):
+            for x, command in ((80, "d"), (320, "w"), (560, "a")):
+                with self.subTest(class_name=class_name, command=command):
+                    detection = Detection(class_name, .95, (x - 10, 260, x + 10, 440))
+                    result = Navigation(allowed_classes=[class_name]).update([detection], 640, 480)
+                    self.assertGreater(detection.bbox[3], 384)
+                    self.assertLess(detection.centroid[1], 384)
+                    self.assertEqual(result.command, command)
+                    self.assertFalse(result.approach_complete)
+
+    def test_vertical_center_boundary_respects_resolution_and_configured_line(self):
+        for width, height in ((640, 480), (1280, 960), (321, 241)):
+            for ratio in (.55, .8):
+                line_y = int(height * ratio)
+                for center_y, command in ((line_y - 1, "w"), (line_y, "s")):
+                    with self.subTest(width=width, ratio=ratio, center_y=center_y):
+                        result = Navigation(bottom_zone_ratio=ratio).update(
+                            [bottle(width // 2, center_y)], width, height)
+                        self.assertEqual(result.command, command)
 
     def test_larger_other_object_does_not_replace_current_target(self):
         navigation = Navigation()
@@ -105,7 +147,7 @@ class NavigationTests(unittest.TestCase):
 
     def test_completed_target_is_released_only_after_confirmed_disappearance(self):
         navigation = Navigation(target_missing_frames=2)
-        navigation.update([bottle(320, 380)], 640, 480)
+        navigation.update([bottle(320, 384)], 640, 480)
         navigation.update([], 640, 480)
         result = navigation.update([bottle(320, 370)], 640, 480)
         self.assertTrue(result.approach_complete)
@@ -152,9 +194,9 @@ class NavigationTests(unittest.TestCase):
 
     def test_autonomous_approach_updates_until_bottom(self):
         navigation = Navigation(target_max_distance_px=300)
-        positions = [(80, 100), (250, 100), (470, 100), (480, 300), (480, 375), (480, 360)]
+        positions = [(80, 100), (250, 100), (470, 100), (480, 300), (480, 375), (480, 384), (480, 360)]
         commands = [navigation.update([bottle(x, y)], 640, 480).command for x, y in positions]
-        self.assertEqual(commands, ["d", "w", "a", "a", "s", "s"])
+        self.assertEqual(commands, ["d", "w", "a", "a", "a", "s", "s"])
 
     def test_each_inference_is_logged_to_terminal_and_file(self):
         with tempfile.TemporaryDirectory() as temporary, contextlib.redirect_stdout(io.StringIO()) as terminal:

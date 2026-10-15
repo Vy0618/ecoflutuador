@@ -6,9 +6,11 @@ A Raspberry Pi 5 executa o SSD MobileNet e a navegação. A câmera USB se conec
 à Pi. O ESP32-WROOM-32 recebe os comandos pela UART2 e controla os ESCs.
 O Python e a captura USB existentes são usados sem alteração.
 
-Para conferir a interpretação dos comandos antes de ter os motores, use o
-[teste OLED](TESTE_OLED.md): `OLED_TEST = true` no sketch exibe o comando e
-desabilita o PWM. Para acionar os motores, altere para `false` e grave novamente.
+Para conferir a interpretação antes de ter os motores, use o
+[teste OLED](TESTE_OLED.md), com `--output oled` no Python. Para acionar os motores,
+use `--output motors`; o sensor é habilitado por padrão. `--ultrasonic` e
+`--no-ultrasonic` escolhem explicitamente o uso do HC-SR04. Grave o firmware
+atualizado uma vez; a troca de modo passa pela UART, sem editar o sketch.
 
 ## Ligação
 
@@ -36,7 +38,8 @@ strapping está descrita no [datasheet do ESP32](https://documentation.espressif
 
 O sketch principal usa UART2 a 115200 baud, 8N1, RX=16 e TX=17. Todos os comandos
 e respostas passam por `SerialComando`, associado a `Serial2`. A UART0/USB fica
-para programação e uma mensagem de diagnóstico de partida.
+para programação. O firmware anuncia `CONFIG_REQUIRED` na UART selecionada e
+aguarda a configuração enviada pelo Python antes de inicializar a saída.
 
 Na Arduino IDE, abra `firmware/ControleESP32/ControleESP32.ino`, selecione ESP32
 Dev Module e grave o sketch com `ECO_SERIAL_USB=0`, seu valor padrão.
@@ -147,18 +150,21 @@ resolvida na ligação, firmware, porta ou permissões antes do teste com motore
 Após confirmar câmera e comunicação, execute com vídeo:
 
 ```bash
-.venv/bin/python object-ident.py --serial-port /dev/ttyAMA0
+.venv/bin/python object-ident.py --serial-port /dev/ttyAMA0 --output motors
 ```
 
 Ou sem janela:
 
 ```bash
-.venv/bin/python object-ident.py --serial-port /dev/ttyAMA0 --no-display
+.venv/bin/python object-ident.py --serial-port /dev/ttyAMA0 --output motors --no-display
 ```
 
+Para o teste sem motores, substitua `--output motors` por `--output oled`.
+Com motores, o HC-SR04 libera a operação por 30 s após detectar menos de 15 cm;
+confira a alimentação e a adaptação do ECHO no [guia de hardware](HARDWARE.md).
 No primeiro ensaio de acionamento, remova as hélices. Apresente uma garrafa
 nas regiões esquerda, centro e direita e confira os comandos `d`, `w`, `a` e
-os motores correspondentes. Faça a borda inferior da caixa atingir a linha e
+os motores correspondentes. Faça o centro da caixa atingir a linha e
 confirme `s`. Retire o alvo e confira a parada. A ausência de mensagens recentes
 deve resultar em parada pelo watchdog após três segundos.
 

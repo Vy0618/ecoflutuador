@@ -27,6 +27,8 @@ void expectPulses(int first, int second) {
 
 int main() {
   setup();
+  assert(!pwmPronto && !armado && !iniciar);
+  send("CONFIG:MOTORES:1\n");
   assert(SerialComando.baud == 115200);
 #if ECO_SERIAL_USB
   assert(&SerialComando == &Serial);
@@ -49,8 +51,28 @@ int main() {
   loop();
   assert(armado && SerialComando.output.find("READY") != std::string::npos);
   assert(comandoAtual == 's');
+  assert(!iniciar);
+  assert(testPinModeCalls[18] == 1 && testPinModes[18] == OUTPUT);
+  assert(testPinModeCalls[19] == 1 && testPinModes[19] == INPUT);
+  SerialComando.output.clear();
   send("?\n");
-  assert(SerialComando.output.find("CAPS:HEARTBEAT") != std::string::npos);
+  assert(SerialComando.output == "CAPS:HEARTBEAT\nINICIAR:0\nREADY\n");
+  for (const char command : {'a', 'w', 'd'}) {
+    SerialComando.output.clear();
+    send(std::string(1, command) + "\n");
+    expectPulses(1000, 1000);
+    assert(SerialComando.output == "INICIAR:0\n");
+  }
+  testEchoDuration = 700;
+  testClock += 100;
+  loop();
+  testEchoDuration = 0;
+  assert(iniciar);
+  assert(testPulsePin == 19 && testPulseState == HIGH && testPulseTimeout == 30000);
+  assert(testDigitalValues[18] == LOW);
+  SerialComando.output.clear();
+  send("?\n");
+  assert(SerialComando.output == "CAPS:HEARTBEAT\nINICIAR:1\nREADY\n");
 
   send("a\n");
   assert(comandoAtual == 'a');
@@ -98,12 +120,31 @@ int main() {
   send("x\n");
   expectPulses(1000, 1000);
 
+  // A nova janela comeca perto do rollover; expiracao usa subtracao uint32_t.
   testClock = UINT32_MAX - 1000;
+  loop();
+  assert(!iniciar);
+  testEchoDuration = 700;
+  testClock += 100;
+  loop();
+  testEchoDuration = 0;
+  assert(iniciar);
   send("w\n");
   settle();
   testClock += 2500;
   loop();
   expectPulses(1000, 1000);
+  // Fim da janela desliga ESCs mesmo com movimento recente na fila.
+  testClock = inicioTimer + 29000;
+  send("w\n");
+  settle();
+  expectPulses(1300, 1300);
+  testClock = inicioTimer + 30000;
+  SerialComando.output.clear();
+  send("a\nd\nw\n");
+  assert(!iniciar && comandoAtual == 's');
+  expectPulses(1000, 1000);
+  assert(SerialComando.output == "INICIAR:0\nINICIAR:0\nINICIAR:0\nINICIAR:0\n");
   std::cout << "OK: comandos, rampa, parada, heartbeat e rollover; core "
             << TEST_CORE_VERSION << '\n';
 }

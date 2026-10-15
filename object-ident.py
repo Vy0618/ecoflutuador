@@ -84,10 +84,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-c", "--config", type=Path, default=CONFIG_FILE)
     parser.add_argument("--camera-index", type=int)
-    parser.add_argument("--serial-port", help="Envia comandos ao ESP32 pela porta indicada, por exemplo /dev/ttyUSB0")
+    parser.add_argument("--serial-port", help="Porta do ESP32, por exemplo /dev/ttyUSB0")
+    parser.add_argument("--output", help="Saida ESP32: oled (padrao) ou motors; com --image, aceita o caminho de saida antigo")
+    sensor = parser.add_mutually_exclusive_group()
+    sensor.add_argument("--ultrasonic", dest="ultrasonic", action="store_true", default=None,
+                        help="Exige ativacao pelo HC-SR04 (padrao com motors)")
+    sensor.add_argument("--no-ultrasonic", dest="ultrasonic", action="store_false",
+                        help="Opera continuamente, sem sensor (padrao com oled)")
     parser.add_argument("--duration", type=float, help="Encerra apos N segundos")
     parser.add_argument("--image", type=Path, help="Reconhece imagem sem abrir webcam")
-    parser.add_argument("--output", type=Path, help="Imagem anotada; exige --image")
+    parser.add_argument("--image-output", type=Path, help="Caminho da imagem anotada; exige --image")
     parser.add_argument("--log-file", type=Path, default=Path(__file__).resolve().parent / "logs" / "recognition.jsonl",
                         help="Arquivo de registros; cada registro tambem aparece no terminal")
     display = parser.add_mutually_exclusive_group()
@@ -97,10 +103,22 @@ def main():
                          help="Executa sem janela, somente quando solicitado")
     parser.set_defaults(display=True)
     args = parser.parse_args()
-    if bool(args.image) != bool(args.output):
-        parser.error("Use --image e --output juntos")
+    image_output = args.image_output
+    if args.image:
+        if args.output and image_output:
+            parser.error("Com --image, escolha --image-output ou o antigo --output")
+        image_output = image_output or (Path(args.output) if args.output else None)
+        if image_output is None:
+            parser.error("Use --image com --image-output (ou --output)")
+    else:
+        if image_output is not None:
+            parser.error("--image-output exige --image")
+        if args.output not in (None, "oled", "motors"):
+            parser.error("--output deve ser oled ou motors")
     if args.image and args.serial_port:
         parser.error("--serial-port exige reconhecimento pela webcam")
+    if not args.serial_port and (args.ultrasonic is not None or (args.output and not args.image)):
+        parser.error("Os argumentos de modo exigem --serial-port")
     if args.duration is not None and args.duration <= 0:
         parser.error("--duration deve ser positivo")
     if args.camera_index is not None and args.camera_index < 0:
@@ -114,7 +132,9 @@ def main():
     try:
         config = load_config(args.config)
         detector = create_detector(config)
-        navigation = Navigation(config["display"]["bottom_zone_ratio"], **config["navigation"])
+        navigation = Navigation(config["display"]["bottom_zone_ratio"],
+                                allowed_classes=config["ssd_mobilenet"]["detection_types"],
+                                **config["navigation"])
         log = CommandLog(args.log_file)
         if args.image:
             frame = cv2.imread(str(args.image))
@@ -123,8 +143,8 @@ def main():
             detections = detect_frame(detector, frame, config)
             result = navigation.update(detections, frame.shape[1], frame.shape[0])
             record_navigation(log, result, detections)
-            if not cv2.imwrite(str(args.output), annotate(frame, detections, config["display"]["bottom_zone_ratio"], result)):
-                raise OSError(f"Nao foi possivel salvar {args.output}")
+            if not cv2.imwrite(str(image_output), annotate(frame, detections, config["display"]["bottom_zone_ratio"], result)):
+                raise OSError(f"Nao foi possivel salvar {image_output}")
             print(f"Garrafas detectadas: {len(detections)}")
             return 0
         show = args.display
@@ -146,8 +166,10 @@ def main():
         device = camera_settings.open_camera()
         camera = LatestFrameCamera(device, target_fps=camera_settings.fps)
         if args.serial_port:
-            motor_link = Esp32Link(args.serial_port)
-            log.record(evento="serial", porta=args.serial_port, baud=Esp32Link.BAUD, modo=mode)
+            motor_link = Esp32Link(args.serial_port, output=args.output or "oled", ultrasonic=args.ultrasonic)
+            log.record(evento="serial", porta=args.serial_port, baud=Esp32Link.BAUD,
+                       iniciar=motor_link.iniciar, saida=motor_link.output,
+                       ultrassonico=motor_link.ultrasonic, modo=mode)
         log.record(evento="camera", configuracao=str(args.config.resolve()),
                    fps_configurado=camera_settings.fps,
                    fps_reportado_camera=device.get(cv2.CAP_PROP_FPS),
@@ -162,12 +184,36 @@ def main():
         while args.duration is None or time.monotonic() - start < args.duration:
             frame = camera.read()
             now = time.monotonic()
-            if now >= next_detection or frame.shape != last_shape:
+            if motor_link:
+                motor_link.poll()
+                if motor_link.activation_changed:
+                    navigation = Navigation(config["display"]["bottom_zone_ratio"],
+                                            allowed_classes=config["ssd_mobilenet"]["detection_types"],
+                                            **config["navigation"])
+                    detections = []
+                    result = navigation.stop()
+                    next_detection = 0
+                    last_shape = None
+                    log.record(evento="ultrassonico", iniciar=motor_link.iniciar, comando="s", modo=mode)
+                    motor_link.activation_changed = False
+                if not motor_link.iniciar:
+                    detections = []
+                    result = navigation.stop()
+            if (not motor_link or motor_link.iniciar) and (now >= next_detection or frame.shape != last_shape):
                 detections = detect_frame(detector, frame, config)
-                result = navigation.update(detections, frame.shape[1], frame.shape[0])
                 if motor_link:
-                    motor_link.send(result.command)
-                record_navigation(log, result, detections, mode=mode)
+                    motor_link.poll()
+                if not motor_link or (motor_link.iniciar and not motor_link.activation_changed):
+                    result = navigation.update(detections, frame.shape[1], frame.shape[0])
+                    if motor_link:
+                        motor_link.send(result.command)
+                        if not motor_link.iniciar or motor_link.activation_changed:
+                            detections = []
+                            result = navigation.stop()
+                    record_navigation(log, result, detections, mode=mode)
+                else:
+                    detections = []
+                    result = navigation.stop()
                 next_detection = now + interval
                 last_shape = frame.shape
             if show:

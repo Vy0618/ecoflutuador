@@ -13,7 +13,7 @@
     "input_width": 320,
     "input_height": 320,
     "detection_types": [
-      "bottle"
+      "bottle", "cell phone"
     ]
   },
   "detection_interval_ms": 300,

@@ -9,6 +9,10 @@ A apresentação, o funcionamento, o hardware e as fontes estão no
 esteja dentro de `docs/`. A câmera é USB e o vídeo é exibido por padrão;
 `--no-display` permite executar sem janela.
 
+No padrão OLED, câmera e comandos funcionam continuamente com `--serial-port`,
+sem HC-SR04. No modo de motores, o padrão exige a janela de 30 s do sensor.
+Sem serial, a câmera e a detecção também funcionam continuamente.
+
 ## Conteúdo
 
 - [Instalação](#instalação)
@@ -98,41 +102,86 @@ ambiente local; ao criar um novo venv em outra máquina, prepare o PlatformIO ne
 
 ## Seleção de OLED ou motores
 
-A seleção da saída é feita em
-[ControleESP32.ino](../firmware/ControleESP32/ControleESP32.ino):
+A saída e o sensor são escolhidos ao iniciar o Python:
 
-```cpp
-constexpr bool OLED_TEST = true;
+### OLED sem sensor — padrão
+
+Executa o reconhecimento continuamente e mostra os comandos no OLED, sem
+depender do HC-SR04 e sem acionar os motores.
+
+```bash
+.venv/bin/python object-ident.py --serial-port /dev/ttyUSB0 --output oled
 ```
 
-| Valor | Saída |
-|---|---|
-| `true` | Exibe o comando e a interpretação no OLED; nenhum PWM é configurado ou escrito |
-| `false` | Controla os dois ESCs e motores |
+### OLED com ultrassônico
 
-O arquivo está com `true`. Ao mudar a constante, **compile e grave novamente**.
-O comando Python é o mesmo nos dois modos. O teste visual descrito neste guia
-usa a tela **OLED SSD1306**, de endereço I²C `0x3C`.
+Mantém o reconhecimento em espera até uma leitura válida abaixo de 15 cm.
+Depois, exibe os comandos no OLED durante a janela de 30 segundos.
+
+```bash
+.venv/bin/python object-ident.py --serial-port /dev/ttyUSB0 --output oled --ultrasonic
+```
+
+### Motores com ultrassônico — padrão dos motores
+
+Usa os motores para a navegação, com ativação pelo HC-SR04 e janela de
+30 segundos. Esse é o padrão ao selecionar `--output motors`.
+
+```bash
+.venv/bin/python object-ident.py --serial-port /dev/ttyAMA0 --output motors
+```
+
+### Motores sem ultrassônico
+
+Executa o reconhecimento e envia os comandos aos motores continuamente,
+sem aguardar o sensor e sem o limite de 30 segundos.
+
+```bash
+.venv/bin/python object-ident.py --serial-port /dev/ttyAMA0 --output motors --no-ultrasonic
+```
+
+As portas são exemplos: use a porta correspondente à ligação e ao perfil
+gravado na ESP32. As paradas por alvo ausente, região inferior e falha de
+comunicação continuam funcionando em todos os modos.
+
+| Argumento | Saída |
+|---|---|
+| `--output oled` | Exibe os comandos no OLED; nenhum PWM é gerado |
+| `--output motors` | Controla os ESCs e motores |
+| `--ultrasonic` | Exige o disparo do sensor e limita a janela a 30 s |
+| `--no-ultrasonic` | Reconhecimento contínuo, sem sensor |
+
+**Grave esta versão do firmware uma vez.** Depois, a mudança entre esses modos
+é enviada pela UART, sem editar variáveis ou regravar a cada teste. O padrão
+com serial é OLED sem sensor; os argumentos de modo exigem `--serial-port`.
+`--no-display` controla apenas o vídeo no computador. O teste visual usa
+OLED SSD1306 de endereço I²C `0x3C`.
 
 ### Ligações da saída
 
 | Componente | ESP32-WROOM-32 |
 |---|---|
-| OLED SDA | GPIO 21 |
+| OLED SDA | GPIO 23 (`OLED_SDA`, valor atual do firmware) |
 | OLED SCL | GPIO 22 |
 | OLED GND | GND |
 | OLED VCC | 3,3 V, com módulo compatível com essa alimentação |
 | Sinal do ESC 1 / motor esquerdo | GPIO 12 |
 | Sinal do ESC 2 / motor direito | GPIO 14 |
 | Referência dos ESCs | GND comum com a ESP32 |
+| HC-SR04 TRIG | GPIO18 |
+| HC-SR04 ECHO | Adaptação de nível de 5 V para 3,3 V → GPIO19 |
 
 Para o modo motores, os GPIOs fornecem sinais aos ESCs; os ESCs e motores usam
 alimentação própria. Faça o primeiro teste de acionamento sem hélices. A parada
 `s` aplica o pulso mínimo de 1000 µs aos ESCs; ela não corta a alimentação elétrica.
 
-A tela usa I²C nos pinos 21/22, conforme a
+A tela usa I²C nos pinos SDA23/SCL22, conforme a
 [API I²C do Arduino-ESP32](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/i2c.html).
 Mais detalhes da tela estão no [guia OLED](TESTE_OLED.md).
+O HC-SR04 não precisa estar conectado no teste OLED padrão. Quando habilitado,
+o HC-SR04 clássico usa VCC de 5 V; a fonte real ainda precisa ser definida.
+Não conecte ECHO diretamente ao GPIO19. Confira GND, alimentação e adaptação
+nas [ligações previstas do sensor](HARDWARE.md#hc-sr04-ligações-previstas).
 
 ### Seleção do canal de comunicação
 
@@ -147,8 +196,8 @@ Com PlatformIO, mantenha o valor padrão `ECO_SERIAL_USB=0` no sketch; o perfil
 `esp32-usb` define `1` na compilação. Pela Arduino IDE, altere essa definição para
 `1` no teste USB ou `0` na montagem com UART2. Grave novamente depois de mudar.
 
-No perfil UART2, o cabo USB continua servindo para gravação e diagnóstico de
-partida. Os comandos de controle chegam por RX2/TX2 (GPIOs 16/17).
+No perfil UART2, o cabo USB continua servindo para gravação. Os comandos e as
+respostas do protocolo passam por RX2/TX2 (GPIOs 16/17).
 
 ## Teste apenas do reconhecimento
 
@@ -160,7 +209,8 @@ Conecte a câmera USB ao computador, instale as dependências e execute:
 
 A janela deve mostrar a câmera, as bounding boxes, as regiões, a garrafa
 selecionada e o comando decidido. O terminal registra cada inferência.
-Sem `--serial-port`, as decisões ficam no terminal e no arquivo de log.
+Sem `--serial-port`, as decisões ficam no terminal e no arquivo de log, sem
+depender do HC-SR04.
 
 Para outra câmera ou uma execução limitada:
 
@@ -177,17 +227,19 @@ Para executar sem janela:
 Para uma imagem estática, sem abrir a câmera:
 
 ```bash
-.venv/bin/python object-ident.py --image foto.jpg --output resultado.jpg
+.venv/bin/python object-ident.py --image foto.jpg --image-output resultado.jpg
 ```
 
-Nesse caso, `--image` e `--output` são usados juntos. O programa salva a imagem
+Nesse caso, `--image` e `--image-output` são usados juntos. O antigo
+`--image foto.jpg --output resultado.jpg` continua aceito. O programa salva a imagem
 com as anotações. Encerre o vídeo com `q`, `Esc`, fechando a janela ou `Ctrl+C`.
 
 ## Teste no computador com ESP32
 
 ### 1. Preparar e gravar a ESP32
 
-Conecte o OLED ou os ESCs conforme a tabela de saída e escolha `OLED_TEST`:
+Conecte o OLED ou os ESCs conforme a tabela de saída e escolha `--output oled`
+ou `--output motors` no comando Python:
 `true` para a tela, `false` para os motores. Conecte a ESP32 ao computador com
 um cabo USB de dados. Liste as portas:
 
@@ -214,17 +266,38 @@ computador e execute:
 .venv/bin/python object-ident.py --serial-port /dev/ttyUSB0
 ```
 
-O programa espera `READY` e confirma uma parada inicial. A inicialização do
-firmware leva cerca de três segundos. Com OLED, observe a letra e o movimento
-interpretado; com motores, observe os acionamentos correspondentes.
+O programa consulta a placa, solicita parada, envia `CONFIG:OLED:0` por padrão,
+exige `CONFIG_OK:OLED:0`, espera `READY` e confirma outra parada. A preparação
+da saída leva cerca de três segundos. No OLED padrão, a ESP32 informa
+`INICIAR:1` e libera o reconhecimento continuamente, sem sensor e sem limite
+de 30 s. Isso vale para USB e UART2; é preciso gravar o firmware atualizado.
+Com `--ultrasonic`, só recebe essa liberação após o disparo.
+A câmera continua aberta e a janela mostra as linhas e a parada enquanto
+espera. Não é necessário reiniciar o Python a cada disparo do sensor.
 
 ### 3. Conferir o comportamento
 
-Apresente uma garrafa à esquerda, no meio e à direita: os comandos esperados
-são `d`, `w` e `a`. Faça a borda inferior da caixa alcançar a linha horizontal:
-o comando deve virar `s`. Retire a garrafa e confira a parada. Se houver mais
+No teste OLED padrão, apresente um alvo configurado à esquerda, no meio e à direita:
+os comandos esperados são `d`, `w` e `a`. Faça o centro da caixa
+alcançar a linha horizontal: o comando deve virar `s`. O ponto verde marca esse
+centro; somente a ponta da caixa cruzar a linha não deve parar. Retire o alvo e
+confira a parada. Se houver mais
 de uma garrafa, o alvo destacado deve permanecer acompanhado sem trocar apenas
 porque outra caixa ficou maior.
+
+As classes de `ssd_mobilenet.detection_types` também são usadas pela navegação.
+Para testar com celular, use `cell phone`. Depois de alcançar a faixa inferior,
+retire o alvo por três inferências (cerca de 1 s) para liberar outro teste;
+enquanto a mesma aproximação estiver encerrada, `s` permanece esperado.
+
+Somente com sensor habilitado, dispare antes o HC-SR04 abaixo de 15 cm.
+Ao terminar a janela, confira `INICIAR:0` e a parada, mesmo que ainda haja uma
+garrafa na câmera. O firmware rejeita movimentos enquanto aguarda o sensor.
+Sem eco válido, nenhuma janela deve começar. Para conferir o vencimento,
+execute sem `--duration` ou use um tempo maior que 30 s e afaste o objeto do
+sensor após o disparo. Se ele continuar abaixo de 15 cm, a próxima leitura
+após o vencimento poderá abrir outra janela. Leituras próximas ou sem eco
+durante uma janela não reiniciam nem encerram seu prazo.
 
 O mesmo teste aceita `--no-display` e `--duration 20`. Para testar comandos
 manualmente, sem a câmera, use o monitor serial descrito em [Comandos úteis](#comandos-úteis).
@@ -262,7 +335,8 @@ instalação no Lite. Ajuste `--camera-index` se a webcam não for o índice zer
 
 ### 2. Preparar a ESP32 e ligar a UART
 
-Escolha `OLED_TEST=true` para a tela ou `false` para os motores. Grave o perfil
+Escolha `--output oled` para a tela ou `--output motors` para os motores no Python.
+Grave o perfil
 **UART2** pelo cabo USB da ESP32, usando o computador de programação ou a Pi:
 
 ```bash
@@ -369,8 +443,14 @@ Ou headless, adequado ao acesso SSH:
 ```
 
 Confira a sequência `d → w → a → s`, a parada ao perder o alvo e o timeout.
-O modo OLED e o modo motores usam esse mesmo comando de execução. A preparação
-completa também está no [guia físico](TESTE_FISICO_RPI5.md).
+No OLED padrão, não há disparo do sensor nem limite de 30 s. Quando
+sensor habilitado por `--ultrasonic` ou pelo padrão de `motors`, dispare primeiro
+o HC-SR04 abaixo de 15 cm e confira
+`INICIAR:0` e a parada ao completar 30 s. Para testar só a câmera, execute
+sem `--serial-port`.
+Para os motores, acrescente `--output motors` ao comando; para a tela, use
+`--output oled` ou mantenha o padrão. A preparação completa também está no
+[guia físico](TESTE_FISICO_RPI5.md).
 
 ## Configuração do reconhecimento
 
@@ -383,7 +463,7 @@ Edite [config.json](../config.json) e reinicie o programa para aplicar as mudan�
 | `camera.fps` | `30` | Limite de entrega de frames à aplicação |
 | `ssd_mobilenet.confidence_threshold` | `0.45` | Confiança mínima |
 | `ssd_mobilenet.input_width` / `input_height` | `320` / `320` | Entrada da rede |
-| `ssd_mobilenet.detection_types` | `["bottle"]` | Classe reconhecida para navegação |
+| `ssd_mobilenet.detection_types` | `["bottle", "cell phone"]` | Classes reconhecidas e usadas para navegação |
 | `detection_interval_ms` | `300` | Intervalo mínimo entre inferências |
 | `image_processing.enabled` | `true` | Redução proporcional quando necessária |
 | `image_processing.max_width` / `max_height` | `640` / `480` | Limites antes da entrada da rede |
@@ -438,7 +518,8 @@ source .venv/bin/activate
 ```
 
 `--display` solicita explicitamente o vídeo, que já é o padrão. O modo de
-imagem estática usa `--image` com `--output` e não aceita `--serial-port`.
+imagem estática usa `--image` com `--image-output` (ou o antigo `--output`) e
+não aceita `--serial-port`.
 
 ### Monitor serial e comandos manuais
 
@@ -448,15 +529,24 @@ Com o perfil USB gravado, feche o reconhecimento e abra:
 .venv/bin/python -m serial.tools.miniterm /dev/ttyUSB0 115200 --eol LF
 ```
 
-Na Pi com o perfil UART2, substitua a porta por `/dev/ttyAMA0`. Aguarde `READY`,
-ou envie `?` seguido de Enter para consultar. Envie `a`, `w`, `d` ou `s`,
+Na Pi com o perfil UART2, substitua a porta por `/dev/ttyAMA0`. A placa anuncia
+`CONFIG_REQUIRED` ao ligar. Envie `CONFIG:OLED:0` para OLED contínuo,
+`CONFIG:OLED:1` para OLED com sensor, `CONFIG:MOTORES:1` para motores com sensor
+ou `CONFIG:MOTORES:0` para motores sem sensor. Aguarde a confirmação exata
+`CONFIG_OK:<saida>:<sensor>` e depois `READY`. Envie `?` para consultar o estado.
+Somente com sensor habilitado, dispare o HC-SR04 antes de enviar movimentos.
+Envie `a`, `w`, `d` ou `s`,
 sempre com Enter. `Ctrl+]` fecha o miniterm; envie `s` antes de sair.
 O monitor serial da Arduino IDE também pode ser usado com **115200 baud** e
 **nova linha** no perfil USB. Use um programa por vez na mesma porta.
 
 | Mensagem | Função |
 |---|---|
-| `?` | Consulta a ESP32 e aplica parada |
+| `?` | Consulta prontidão e `INICIAR:0/1`; aplica parada |
+| `CONFIG_REQUIRED` | Placa aguardando configuração, sem saída inicializada |
+| `CONFIG:OLED:0/1` | Configura OLED sem/com sensor |
+| `CONFIG:MOTORES:0/1` | Configura motores sem/com sensor |
+| `CONFIG_OK:<saida>:<sensor>` | Confirmação exata do modo aplicado; depois aguarde `READY` |
 | `ARMING` / `READY` | Inicialização em andamento / firmware pronto |
 | `a`, `w`, `d`, `s` | Movimentos e parada |
 | `CMD_OK:<comando>` | Confirmação de aceitação |
@@ -464,12 +554,26 @@ O monitor serial da Arduino IDE também pode ser usado com **115200 baud** e
 | `h` / `HB_OK` | Renovação do timeout sem mudar o movimento |
 | `TIMEOUT:s` | Parada após três segundos sem mensagens de movimento/heartbeat |
 | `ERROR:<motivo>` | Erro informado pelo firmware |
+| `INICIAR:1` / `INICIAR:0` | Liberado / aguardando o sensor; sem ultrassônico, a liberação é contínua |
+
+Com ultrassônico habilitado e fora da janela, `a/w/d` provocam parada e resposta `INICIAR:0`, sem `CMD_OK`
+para o movimento. `s` e `h` continuam aceitos quando a placa está pronta;
+`h` não libera movimentos. Firmware antigo sem suporte a `CONFIG` é rejeitado
+pelo Python; grave a versão atual antes de usar os novos argumentos.
+
+Quando habilitado, o HC-SR04 é lido a cada 100 ms, com `pulseIn` limitado a 30 ms. Uma distância
+válida abaixo de 15 cm libera a janela. A ESP32 encerra os movimentos
+localmente após 30 s; `h` não prolonga essa autorização. `INICIAR:1/0` são
+mensagens enviadas pela ESP32, não comandos manuais para forçar a liberação.
+
+A configuração é mantida apenas em RAM e reaplicada pelo Python a cada execução.
+Para trocar o modo, encerre o programa e inicie novamente com os argumentos desejados.
 
 O Python espera até oito segundos por `READY` e um segundo por confirmação.
 Suprime movimentos repetidos e envia `h` no máximo uma vez por segundo, quando
 uma decisão recente mantém o comando. A renovação depende da câmera e da
-inferência; ela não roda em uma thread independente. O firmware anterior do
-V4.1, sem heartbeat, recebe renovações do movimento em vez de `h`.
+inferência; ela não roda em uma thread independente. Para este teste, grave o
+firmware atualizado, que informa a liberação contínua ou pelo HC-SR04.
 
 Falhas de comunicação solicitam `s` e encerram a execução. Quando a serial está
 totalmente indisponível, o watchdog da ESP32 aplica a parada. Comandos inválidos
@@ -502,9 +606,12 @@ a configuração JSON ajusta o reconhecimento.
 | Câmera não abre | Conexão USB, permissões e `camera.device_index` / `--camera-index` |
 | ESP32 não confirma `READY` | Porta correta, perfil USB/UART2, RX/TX cruzados e GND comum |
 | Acesso negado à serial | Grupo da porta e outro programa usando o dispositivo |
-| OLED não mostra texto | `OLED_TEST=true`, alimentação, SDA=21, SCL=22 e endereço `0x3C` |
-| Motores não acionam | `OLED_TEST=false`, firmware regravado, alimentação dos ESCs e pinagem |
+| OLED não mostra texto | `--output oled`, confirmação `CONFIG_OK`, alimentação, SDA=23, SCL=22 e endereço `0x3C` |
+| Motores não acionam | `--output motors`, confirmação `CONFIG_OK`, sensor quando habilitado, alimentação dos ESCs e pinagem |
 | Paradas por timeout | Tempo real de inferência e chegada de mensagens abaixo de três segundos |
+| Serial pronta, mas sem reconhecimento/movimento | Firmware atualizado, argumentos de sensor e `INICIAR:1`; para teste sem sensor, use `--output oled --no-ultrasonic` |
+| Sem confirmação `CONFIG_OK` | Grave o novo firmware e confira se outro programa ocupa a porta |
+| Celular aparece na imagem, mas só há `s` | `cell phone` em `detection_types`, programa atualizado, centro da caixa acima da faixa inferior e aproximação anterior já liberada |
 
 GPIO 12 participa da configuração de boot da ESP32. Se a placa deixar de
 inicializar com o ESC conectado, confira o nível imposto a esse pino, conforme
@@ -528,8 +635,10 @@ Com o reconhecimento fechado, consulte a porta manualmente:
 .venv/bin/python -m serial.tools.miniterm /dev/ttyAMA0 115200 --eol LF
 ```
 
-Envie `?` e pressione Enter. O firmware atual responde `CAPS:HEARTBEAT` e
-`READY` quando está pronto, ou `ARMING` durante a inicialização. Sem resposta,
+Envie `?` e pressione Enter. O firmware responde `CAPS:HEARTBEAT`, `INICIAR:0/1`
+e `CONFIG_REQUIRED` se ainda não estiver configurado. Envie `CONFIG:OLED:0`,
+aguarde `CONFIG_OK:OLED:0` e depois `READY`. Se já configurado, a consulta retorna
+`READY` quando está pronto ou `ARMING` durante a preparação. Sem resposta,
 confira firmware, porta, ligação e alimentação. Se aparecer `ERROR:OLED`,
 a inicialização da tela falhou. Feche o monitor com `Ctrl+]` antes de repetir
 o teste com `Esp32Link`.
@@ -548,7 +657,8 @@ comando: d
 
 O timestamp usa `AAAA-MM-DD-HH-SS`, sem minutos, no fuso de São Paulo, conforme
 o formato solicitado. Sem alvo, a região é `sem_alvo` e o objeto é `nenhum`.
-`garrafas_detectadas` conta as detecções no quadro. `comando` mostra a decisão
+`garrafas_detectadas` conta somente as detecções `bottle`; um celular não incrementa
+esse campo. `comando` mostra a decisão
 mantida, inclusive quando um reenvio é suprimido ou substituído por heartbeat.
 
 O arquivo `logs/recognition.jsonl` guarda dados completos: timestamp UTC, sequência,

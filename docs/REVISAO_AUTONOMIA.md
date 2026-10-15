@@ -2,6 +2,9 @@
 
 Data: 12/10/2026, 16:05:33, America/Sao_Paulo (UTC−03:00).
 
+> Atualização de 15/10/2026: a parada na faixa inferior passou a usar o centro
+> da caixa, em vez de `ymax`. Este relatório preserva os critérios da revisão original.
+
 Objetivo: adequar o percurso entre detecção e parada ao fluxo solicitado,
 preservando o SSD MobileNet, a câmera, a interface gráfica, os registros e o
 protocolo de movimento do ESP32.

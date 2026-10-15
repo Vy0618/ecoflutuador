@@ -10,8 +10,10 @@ Para conferir a interpretação sem motores, o firmware pode exibir os comandos
 em uma tela OLED SSD1306.
 
 O V4.1 é o projeto principal e está na raiz do repositório. Na montagem final,
-a câmera USB fica conectada à Raspberry Pi 5. O reconhecimento continua ativo
-durante a aproximação e depois da parada.
+a câmera USB fica conectada à Raspberry Pi 5. O teste com OLED funciona
+continuamente, sem precisar do HC-SR04. No modo de motores, o padrão aguarda
+uma distância válida menor que 15 cm para liberar uma janela de 30 segundos.
+Sem serial, o reconhecimento continua ativo normalmente.
 
 As instruções de instalação, setup e testes estão em
 [docs/testes.md](docs/testes.md).
@@ -39,7 +41,7 @@ OpenCV; o fluxo atual dispensa o pacote Python TensorFlow.
 
 | Biblioteca ou ferramenta | Uso |
 |---|---|
-| Arduino-ESP32 | UART, temporização e PWM LEDC dos ESCs |
+| Arduino-ESP32 | UART, temporização, leitura do HC-SR04 com `pulseIn` e PWM LEDC dos ESCs |
 | `Wire` | Barramento I²C do OLED; acompanha o core Arduino |
 | Adafruit SSD1306 | Controle da tela 128×64 |
 | Adafruit GFX Library | Texto e desenho na tela |
@@ -60,8 +62,11 @@ que a inferência trabalhe sobre uma fila de imagens antigas. O ciclo principal
 limita a entrega de frames conforme o FPS e executa a rede no intervalo definido
 em `config.json`.
 
-A navegação seleciona e acompanha uma garrafa. A posição horizontal decide o
-movimento; a borda inferior da caixa, `ymax`, decide a parada. A comunicação
+A navegação seleciona e acompanha um alvo das classes em
+`ssd_mobilenet.detection_types`; o teste atual inclui `bottle` e `cell phone`.
+Para a coleta somente de garrafas, configure apenas `bottle`.
+A posição horizontal decide o
+movimento; a coordenada vertical do centro da caixa decide a parada. A comunicação
 serial envia a decisão à ESP32 e espera a confirmação. A ESP32 mantém o controle
 dos ESCs e a parada por timeout independentemente da execução do Python.
 
@@ -91,16 +96,19 @@ versões anteriores e `aquamonitor/` permanecem como referências históricas.
 flowchart TD
     A[Iniciar e ler config.json] --> B[Carregar SSD e abrir câmera]
     B --> C{Serial habilitada?}
-    C -->|Sim| D[Consultar ESP32, aguardar READY e confirmar parada]
+    C -->|Sim| D[Consultar ESP32, parar, configurar, aguardar confirmacao e READY]
     C -->|Não| E[Obter frame mais recente]
     D --> E
-    E --> F{É hora de inferir?}
+    E --> ENABLED{Serial aguardando o sensor?}
+    ENABLED -->|Sim| WAIT[Manter parada sem inferência]
+    WAIT --> V
+    ENABLED -->|Não| F{É hora de inferir?}
     F -->|Não| V[Atualizar vídeo, se habilitado]
-    F -->|Sim| G[Detectar garrafas e restaurar bounding boxes]
+    F -->|Sim| G[Detectar classes configuradas e restaurar bounding boxes]
     G --> H[Selecionar ou acompanhar um alvo]
     H --> I{Alvo válido?}
     I -->|Não| S[Comando s: parar]
-    I -->|Sim| J{ymax atingiu a faixa inferior ou aproximação já terminou?}
+    I -->|Sim| J{Centro atingiu a faixa inferior ou aproximação já terminou?}
     J -->|Sim| S
     J -->|Não| K[Centro horizontal e histerese: escolher d, w ou a]
     S --> L{Serial habilitada?}
@@ -131,9 +139,10 @@ O cálculo acompanha a resolução real do frame.
 | Baixo, alvo ausente/inválido ou aproximação encerrada | `s` | Ambos parados |
 
 Os comandos são minúsculos e terminados por nova linha. O centro da bounding box
-determina a região horizontal. A caixa não precisa caber inteira no terço.
-Quando `ymax` alcança a linha inferior, o sistema encerra a aproximação daquele
-alvo e mantém a parada, mesmo se a caixa recuar acima da linha.
+determina a posição horizontal e vertical. A caixa não precisa caber inteira no terço.
+Quando o centro alcança a linha inferior, o sistema encerra a aproximação daquele
+alvo e mantém a parada, mesmo se a caixa recuar acima da linha. Apenas a ponta
+do objeto entrar na faixa inferior não provoca mais a parada.
 
 A seleção inicial prioriza a maior área, depois confiança e coordenadas para
 desempate. Depois o alvo é associado por sobreposição das caixas ou distância
@@ -146,10 +155,30 @@ física e não incrementa um contador de garrafas coletadas.**
 
 ### Comunicação e parada
 
-A ligação usa 115200 baud, 8N1. O Python consulta a ESP32, aguarda `READY` e
-confirma uma parada inicial. Cada comando enviado recebe uma confirmação.
+A ligação usa 115200 baud, 8N1. O Python consulta a ESP32, solicita parada,
+envia o modo, verifica `CONFIG_OK` e aguarda `READY`. Confirma outra parada
+antes de reconhecer. Cada comando enviado recebe uma confirmação.
 Movimentos iguais são suprimidos; quando uma decisão recente mantém o comando,
 o heartbeat renova o timeout no máximo uma vez por segundo.
+
+Os argumentos `--output oled|motors` e `--ultrasonic`/`--no-ultrasonic`
+configuram o firmware pela UART. O padrão é OLED sem sensor; `motors` habilita
+o sensor por padrão. Grave esta versão uma vez; a troca de modo entre execuções
+não exige editar nem regravar o firmware. A ESP32 anuncia `CONFIG_REQUIRED`
+na inicialização e só prepara as saídas após uma configuração válida.
+No teste contínuo, a configuração informa `INICIAR:1` sem depender do HC-SR04.
+O passo a passo está no [guia OLED](docs/TESTE_OLED.md).
+
+Quando habilitado, o HC-SR04 usa TRIG no GPIO 18 e ECHO no GPIO 19. A ESP32 mede a cada 100 ms,
+com espera máxima de 30 ms pelo pulso. Uma leitura válida abaixo de 15 cm envia
+`INICIAR:1`, liberando reconhecimento e movimentos por 30 segundos. Ao expirar,
+a ESP32 para localmente e envia `INICIAR:0`; o Python volta à espera. A consulta
+`?` também informa esse estado. Isso vale para UART2 e USB, com OLED ou motores;
+o modo sem `--serial-port` continua reconhecendo sem depender do sensor.
+Leituras próximas durante a janela não reiniciam o prazo. Após o vencimento,
+uma nova leitura abaixo de 15 cm pode abrir outra janela, mesmo sem afastar o
+objeto. A navegação é reiniciada em cada transição; resultados de inferências
+que atravessarem uma transição são descartados.
 
 A renovação depende da captura e da inferência. Uma falha solicita parada e
 encerra a execução. Se a comunicação ficar indisponível, o watchdog da ESP32
@@ -167,11 +196,13 @@ interpretada e nenhum PWM é gerado.
 O vídeo é exibido por padrão e mostra as linhas divisórias, as bounding boxes,
 a confiança, o alvo selecionado e o comando atual. O reconhecimento também
 pode operar sem janela ou processar uma imagem estática.
+Durante a espera pelo HC-SR04, a câmera e as linhas continuam visíveis, com
+comando `s`; a inferência fica suspensa.
 
 O terminal registra timestamp, região, objeto, quantidade de garrafas detectadas
 e comando. O arquivo JSONL guarda os dados completos, incluindo caixa, centro,
 confiança e estado da aproximação, com rotação de aproximadamente 2 MB e três
-arquivos anteriores. A quantidade representa detecções no quadro, sem confirmar
+arquivos anteriores. A quantidade conta somente `bottle` no quadro, sem confirmar
 coleta física. Os exemplos de execução e leitura dos logs estão no
 [guia de testes](docs/testes.md#logs-e-acompanhamento).
 
@@ -186,6 +217,7 @@ coleta física. Os exemplos de execução e leitura dos logs estão no
 | Dois motores brushless | Propulsão e correção da trajetória |
 | Dois ESCs | Acionar os motores a partir dos sinais PWM da ESP32 |
 | OLED SSD1306 128×64, I²C `0x3C` | Exibir comandos no teste visual sem motores |
+| HC-SR04 | Liberar a janela de reconhecimento e movimento pela proximidade |
 | Rede de coleta | Coleta passiva na parte inferior da embarcação |
 | Cabos USB, fios UART e alimentação dos ESCs | Programação, comunicação e alimentação da montagem |
 
@@ -196,9 +228,31 @@ entre GPIOs e funções UART está no
 [datasheet do ESP32-WROOM-32](https://documentation.espressif.com/esp32-wroom-32_datasheet_en.html).
 
 O motor esquerdo usa o ESC 1, com sinal no GPIO 12; o motor direito usa o ESC 2,
-com sinal no GPIO 14. O OLED usa SDA=21 e SCL=22. Os ESCs e motores têm alimentação
-própria e compartilham a referência de GND com a ESP32. A pinagem completa e os
-procedimentos de ligação estão no [guia de testes](docs/testes.md#seleção-de-oled-ou-motores).
+com sinal no GPIO 14. No código atual, o OLED usa `OLED_SDA=23` e `OLED_SCL=22`.
+Confira se os fios do teste correspondem a esses valores; os diagramas de
+hardware registram uma montagem informada anteriormente, com outros pinos I²C.
+Os ESCs exigem alimentação de potência própria e referência de GND com a ESP32;
+os detalhes da ligação física ainda precisam ser confirmados.
+
+O [HC-SR04 clássico](https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR04.pdf)
+usa alimentação de 5 V e pode entregar
+[ECHO de 5 V](https://learn.adafruit.com/ultrasonic-sonar-distance-sensors/pinouts).
+**ECHO precisa de divisor ou conversor de nível antes do GPIO 19**, que usa
+lógica de 3,3 V. A fonte real do sensor permanece pendente. O
+[guia de hardware](docs/HARDWARE.md#hc-sr04-ligações-previstas) descreve as
+ligações previstas; os diagramas anteriores continuam mostrando apenas os
+sete jumpers Raspberry–ESP32–OLED, sem o sensor.
+
+### Documentação de hardware
+
+O [guia de hardware](docs/HARDWARE.md) reúne as tabelas de pinagem, todos os GPIOs
+utilizados, os diagramas SVG e Mermaid e as orientações elétricas para a montagem
+Raspberry Pi–ESP32–OLED. Ele distingue a numeração BCM dos pinos físicos da
+Raspberry e registra a incompatibilidade I²C entre os fios informados e o firmware,
+que permanece pendente de correção.
+
+Os procedimentos de instalação, gravação e execução continuam no
+[guia de testes](docs/testes.md).
 
 ## Fontes consultadas
 
@@ -215,6 +269,7 @@ dos requisitos fornecidos nesta conversa.
 | [PlatformIO — conflitos entre instalações](https://docs.platformio.org/en/latest/core/installation/troubleshooting.html#multiple-platformio-cores-in-a-system) | Diagnóstico do `pio` antigo e seleção da instalação funcional |
 | [Arduino-ESP32 — UART](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/serial.html) | Comunicação serial, seleção da UART e configuração dos pinos RX/TX |
 | [Arduino-ESP32 — I²C](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/i2c.html) | Ligação do OLED pelos pinos SDA/SCL |
+| [Arduino-ESP32 — PWM LEDC](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/ledc.html#ledcdetach) | Configuração do PWM e desconexão dos pinos ao trocar motores por OLED |
 | [Espressif — datasheet do ESP32](https://documentation.espressif.com/esp32_datasheet_en.html) | Características dos GPIOs e configuração de boot |
 | [Espressif — datasheet do ESP32-WROOM-32](https://documentation.espressif.com/esp32-wroom-32_datasheet_en.html) | Pinagem e funções UART do módulo utilizado |
 | [Espressif — ESP32-DevKitC com módulo WROOM](https://docs.espressif.com/projects/esp-idf/en/v4.4.1/esp32/hw-reference/esp32/get-started-devkitc.html) | Referência da placa de desenvolvimento e seus conectores |
@@ -230,6 +285,8 @@ dos requisitos fornecidos nesta conversa.
 | [PyPI — arquivos do opencv-python 4.14.0.94](https://pypi.org/project/opencv-python/4.14.0.94/) | Verificação das distribuições disponíveis, incluindo Linux ARM64 |
 | [Debian — dependências do python3.13-venv](https://packages.debian.org/trixie/python3.13-venv) | Preparação do venv na distribuição Trixie |
 | [Linux — driver UVC](https://docs.kernel.org/userspace-api/media/drivers/uvcvideo.html) | Referência para câmeras USB compatíveis com UVC |
+| [HC-SR04 — datasheet ElecFreaks](https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR04.pdf) | Alimentação, pulso de disparo e cálculo da distância |
+| [Adafruit — sinais do HC-SR04](https://learn.adafruit.com/ultrasonic-sonar-distance-sensors/pinouts) | ECHO de 5 V e adaptação para GPIO de 3,3 V |
 
 ### Referências locais e fornecidas pelo usuário
 

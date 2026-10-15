@@ -1,5 +1,12 @@
 # Estudando o código do EcoFlutuador V4.1
 
+> Atualização de 15/10/2026: a seleção de OLED/motores e ultrassônico passou a
+> usar `--output oled|motors` e `--ultrasonic`/`--no-ultrasonic`, com mensagens
+> `CONFIG` pela UART. Os trechos abaixo que mostram constantes de modo e o
+> protocolo anterior são referências da versão estudada originalmente.
+> A parada na faixa inferior também passou a usar o centro da caixa, em vez de `ymax`.
+> Veja os comandos e o protocolo atual em [testes.md](testes.md).
+
 Este texto foi escrito para quem está aprendendo programação e quer entender
 como os arquivos do projeto trabalham juntos. A leitura acompanha uma imagem
 até a decisão de movimento e, depois, segue a mensagem enviada à ESP32.

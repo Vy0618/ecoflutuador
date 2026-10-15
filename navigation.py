@@ -20,7 +20,9 @@ class NavigationResult:
 
 class Navigation:
     def __init__(self, bottom_zone_ratio=0.8, horizontal_hysteresis_ratio=.03,
-                 target_max_distance_px=90, target_min_iou=.1, target_missing_frames=3):
+                 target_max_distance_px=90, target_min_iou=.1, target_missing_frames=3,
+                 allowed_classes=("bottle",)):
+        self.allowed_classes = set(allowed_classes)
         self.bottom_zone_ratio = bottom_zone_ratio
         self.horizontal_hysteresis_ratio = horizontal_hysteresis_ratio
         self.target_max_distance_px = target_max_distance_px
@@ -63,7 +65,7 @@ class Navigation:
 
     def update(self, detections, width, height):
         regions = regions_for_frame(width, height, self.bottom_zone_ratio)
-        candidates = valid_targets(detections, width, height)
+        candidates = valid_targets(detections, width, height, self.allowed_classes)
         if self.target is None:
             # Maior caixa, com desempate independente da ordem das deteccoes.
             selected = min(candidates, key=target_order, default=None)
@@ -82,7 +84,7 @@ class Navigation:
 
         self.target = selected
         self.missing_frames = 0
-        region = "baixo" if selected.bbox[3] >= regions.line_y else self._horizontal(selected.centroid[0], regions)
+        region = "baixo" if selected.centroid[1] >= regions.line_y else self._horizontal(selected.centroid[0], regions)
         if region == "baixo":
             self.approach_complete = True
         if self.approach_complete:
@@ -103,4 +105,4 @@ def record_navigation(log, result, detections, event="reconhecimento", mode="ter
                centro=None if target is None else list(target.centroid),
                ymax=None if target is None else target.bbox[3],
                estado=result.state, aproximacao_encerrada=result.approach_complete,
-               garrafas_detectadas=len(detections), modo=mode)
+               garrafas_detectadas=sum(item.class_name == "bottle" for item in detections), modo=mode)
