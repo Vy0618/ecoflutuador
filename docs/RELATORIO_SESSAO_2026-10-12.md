@@ -31,9 +31,9 @@ de commits não foram usados como substitutos do horário de edição.
 | 15 | 12/10/2026 | Criação de firmware ESP32 e integração serial ao V4.1 | Envio opcional por `--serial-port`, confirmação, rampa, parada e timeout; pyserial instalado no venv |
 | 16 | 12/10/2026 | Atualização da documentação para apresentação e avaliação do projeto | README da raiz, README completo do V4.1 e este relatório |
 
-A revisão do V4 está documentada em
-[ORGANIZACAO_V4.md](../../V4/docs/ORGANIZACAO_V4.md), com
-[inventário por arquivo](../../V4/docs/audit/inventario-organizacao-v4.json).
+A revisão do V4 foi registrada em `V4/docs/ORGANIZACAO_V4.md`, com inventário
+em `V4/docs/audit/inventario-organizacao-v4.json`. São referências históricas;
+esses arquivos não estão incluídos no repositório principal.
 Ela registrou uma simulação de limpeza com 88 testes aprovados. Essa evidência
 é histórica, pertence ao V4 e não foi repetida na etapa atual de documentação.
 Remoções ou alterações feitas pelo usuário no workspace foram preservadas.

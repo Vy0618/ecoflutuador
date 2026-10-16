@@ -7,6 +7,7 @@ class Esp32Link:
     READY_TIMEOUT = 8.0
     ACK_TIMEOUT = 1.0
     HEARTBEAT_INTERVAL = 1.0
+    MAX_REPLY_BYTES = 128
 
     def __init__(self, port, output="oled", ultrasonic=None):
         if output not in ("oled", "motors"):
@@ -20,7 +21,7 @@ class Esp32Link:
         try:
             import serial
         except ImportError as error:
-            raise RuntimeError("Instale as dependencias do V4.1 para usar serial (pyserial)") from error
+            raise RuntimeError("Instale requirements.txt para usar a serial (pyserial)") from error
         self.connection = serial.Serial(port, self.BAUD, timeout=.1, write_timeout=.5)
         self.last_command = None
         self.last_sent_at = 0.0
@@ -50,8 +51,10 @@ class Esp32Link:
     def _wait_for(self, expected, timeout):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline or (expected is None and self.connection.in_waiting):
-            self.reply_buffer += self.connection.readline()
+            self.reply_buffer += self.connection.readline(self.MAX_REPLY_BYTES - len(self.reply_buffer))
             if not self.reply_buffer.endswith(b"\n"):
+                if len(self.reply_buffer) >= self.MAX_REPLY_BYTES:
+                    raise RuntimeError("Resposta serial sem nova linha em 128 bytes")
                 continue
             reply = self.reply_buffer.decode("ascii", errors="replace").strip()
             self.reply_buffer = b""

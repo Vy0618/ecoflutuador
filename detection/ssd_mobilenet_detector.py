@@ -29,7 +29,6 @@ class SsdMobileNetDetector:
                 "Modelo SSD MobileNet ausente. Configure model_path e config_path "
                 "com o .pb e .pbtxt compatíveis."
             )
-        self.net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
         self.confidence_threshold = confidence_threshold
         self.input_width = input_width
         self.input_height = input_height
@@ -41,6 +40,10 @@ class SsdMobileNetDetector:
             )
             if label.strip() and not label.lstrip().startswith("#")
         }
+        unknown = self.allowed_classes.difference(self.labels.values())
+        if unknown:
+            raise ValueError(f"Classes ausentes em {labels_path}: {', '.join(sorted(unknown))}")
+        self.net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
 
     def detect(self, frame: np.ndarray) -> list[Detection]:
         height, width = frame.shape[:2]
@@ -57,7 +60,7 @@ class SsdMobileNetDetector:
         detections: list[Detection] = []
         for result in output.reshape(-1, 7):
             confidence = float(result[2])
-            if confidence < self.confidence_threshold:
+            if confidence < self.confidence_threshold or not np.isfinite(result).all():
                 continue
             class_name = self.labels.get(int(result[1]))
             if class_name not in self.allowed_classes:

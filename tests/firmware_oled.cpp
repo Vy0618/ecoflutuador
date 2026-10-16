@@ -17,12 +17,24 @@ void expectScreen(char command, const std::string& action) {
 int main(int argc, char**) {
   if (argc > 1) display.initialize = false;
   setup();
+  if (argc == 1) {
+    expectScreen('s', "Dist: sem eco");
+    testEchoDuration = 700;
+    testClock += 100;
+    loop();
+    expectScreen('s', "Dist: 12.0 cm");
+    assert(!saidaPronta && !iniciar);
+    testEchoDuration = 0;
+    testClock += 100;
+    loop();
+    expectScreen('s', "Dist: sem eco");
+  }
   assert(testPwmCalls == 0);
-  assert(!pwmPronto && !armado && !iniciar);
+  assert(!saidaPronta && !armado && !iniciar);
   send(TEST_ULTRASONIC ? "CONFIG:OLED:1\n" : "CONFIG:OLED:0\n");
   assert(Wire.sda == OLED_SDA && Wire.scl == OLED_SCL);
   if (argc > 1) {
-    assert(!pwmPronto);
+    assert(!saidaPronta);
     assert(SerialComando.output.find("ERROR:OLED") != std::string::npos);
     testClock = 4000;
     send("w\n");
@@ -34,9 +46,9 @@ int main(int argc, char**) {
   expectScreen('s', "Parado");
   testClock = inicio + 3000;
   loop();
-  if (!USAR_ULTRASSONICO) {
+  if (!usarUltrassonico) {
     assert(iniciar && armado);
-    assert(testPinModeCalls[18] == 0 && testPinModeCalls[19] == 0);
+    assert(testPinModeCalls[18] == 1 && testPinModeCalls[19] == 1);
     SerialComando.output.clear();
     send("?\n");
     assert(SerialComando.output == "CAPS:HEARTBEAT\nINICIAR:1\nREADY\n");
@@ -49,8 +61,17 @@ int main(int argc, char**) {
       expectScreen('w', "Ambos: avancar");
       send("a\n");
       expectScreen('a', "Esquerdo: virar dir");
-      assert(iniciar && testPulseCalls == 0);
+      assert(iniciar && testPulseCalls > 0);
+      assert(display.shown.find("Dist: sem eco") != std::string::npos);
     }
+    testEchoDuration = 700;
+    testClock += 100;
+    loop();
+    expectScreen('a', "Dist: 12.0 cm");
+    testEchoDuration = 0;
+    testClock += 100;
+    loop();
+    expectScreen('a', "Dist: sem eco");
     assert(SerialComando.output.find("INICIAR:0") == std::string::npos);
     testClock = ultimoComando + 3000;
     loop();
@@ -71,6 +92,7 @@ int main(int argc, char**) {
   loop();
   testEchoDuration = 0;
   assert(iniciar);
+  expectScreen('s', "Dist: 12.0 cm");
   send("w\n");
   expectScreen('w', "Ambos: avancar");
   assert(SerialComando.output.find("CMD_OK:w") != std::string::npos);

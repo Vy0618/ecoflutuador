@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -20,6 +21,11 @@ def bottle(x, y, size=20):
 
 
 class NavigationTests(unittest.TestCase):
+    def setUp(self):
+        clock = patch("navigation.time.monotonic", return_value=0.0)
+        self.clock = clock.start()
+        self.addCleanup(clock.stop)
+
     def test_configured_cell_phone_generates_all_four_commands(self):
         for x, y, command in ((80, 100, "d"), (320, 100, "w"),
                               (560, 100, "a"), (320, 384, "s")):
@@ -39,7 +45,8 @@ class NavigationTests(unittest.TestCase):
         result = navigation.update([larger_bottle, phone], 640, 480)
         self.assertIs(result.selected, phone)
         result = navigation.update([larger_bottle], 640, 480)
-        self.assertEqual((result.command, result.selected), ("s", None))
+        self.assertEqual((result.command, result.selected), ("d", None))
+        self.assertEqual(result.state, "alvo_temporariamente_perdido")
 
     def test_four_regions_at_multiple_resolutions(self):
         for width, height in ((640, 480), (1280, 960), (321, 241)):
@@ -72,6 +79,9 @@ class NavigationTests(unittest.TestCase):
         navigation = Navigation()
         self.assertTrue(navigation.update([bottle(80, 100)], 640, 480).changed)
         self.assertFalse(navigation.update([bottle(90, 100)], 640, 480).changed)
+        result = navigation.update([], 640, 480)
+        self.assertEqual((result.region, result.command, result.changed), ("esquerda", "d", False))
+        self.clock.return_value = .4
         result = navigation.update([], 640, 480)
         self.assertEqual((result.region, result.command, result.changed), (None, "s", True))
         self.assertFalse(navigation.stop().changed)
@@ -125,14 +135,17 @@ class NavigationTests(unittest.TestCase):
             result = Navigation().update(detections, 640, 480)
             self.assertIs(result.selected, left)
 
-    def test_lost_target_stops_immediately_and_delays_switch(self):
+    def test_lost_target_stops_after_hold_and_delays_switch(self):
         navigation = Navigation(target_missing_frames=3)
         original, other = bottle(80, 100), bottle(550, 100)
         navigation.update([original], 640, 480)
-        for _ in range(3):
+        for instant in (.3, .5, .699):
+            self.clock.return_value = instant
             result = navigation.update([other], 640, 480)
-            self.assertEqual(result.command, "s")
+            self.assertEqual(result.command, "d")
             self.assertIsNone(result.selected)
+        self.clock.return_value = .701
+        self.assertEqual(navigation.update([other], 640, 480).command, "s")
         result = navigation.update([other], 640, 480)
         self.assertIs(result.selected, other)
         self.assertEqual(result.command, "a")
@@ -140,7 +153,7 @@ class NavigationTests(unittest.TestCase):
     def test_brief_loss_reacquires_same_target(self):
         navigation = Navigation()
         navigation.update([bottle(80, 100)], 640, 480)
-        self.assertEqual(navigation.update([], 640, 480).command, "s")
+        self.assertEqual(navigation.update([], 640, 480).command, "d")
         result = navigation.update([bottle(90, 100), bottle(550, 100, 80)], 640, 480)
         self.assertEqual(result.selected.centroid[0], 90)
         self.assertEqual(result.command, "d")
@@ -190,7 +203,63 @@ class NavigationTests(unittest.TestCase):
     def test_zero_iou_threshold_does_not_match_remote_object(self):
         navigation = Navigation(target_min_iou=0)
         navigation.update([bottle(80, 100)], 640, 480)
+        result = navigation.update([bottle(550, 100)], 640, 480)
+        self.assertEqual((result.command, result.selected), ("d", None))
+        self.clock.return_value = .4
         self.assertEqual(navigation.update([bottle(550, 100)], 640, 480).command, "s")
+
+    def test_hold_keeps_each_command_until_deadline_despite_many_missing_frames(self):
+        for x, command in ((80, "d"), (320, "w"), (560, "a")):
+            with self.subTest(command=command):
+                self.clock.return_value = 0
+                navigation = Navigation(target_missing_frames=1)
+                navigation.update([bottle(x, 100)], 640, 480)
+                # A primeira perda pode chegar depois de uma inferencia demorada.
+                for instant in (.8, .9, 1.0, 1.199):
+                    self.clock.return_value = instant
+                    result = navigation.update([], 640, 480)
+                    self.assertEqual(result.command, command)
+                    self.assertFalse(result.changed)
+                    self.assertIsNone(result.selected)
+                    self.assertEqual(navigation.loss_started_at, .8)
+                self.clock.return_value = 1.201
+                result = navigation.update([], 640, 480)
+                self.assertEqual(result.command, "s")
+                self.assertTrue(result.changed)
+
+    def test_reacquisition_resets_hold_for_the_next_loss(self):
+        navigation = Navigation()
+        navigation.update([bottle(80, 100)], 640, 480)
+        self.clock.return_value = .3
+        self.assertEqual(navigation.update([], 640, 480).command, "d")
+        self.assertEqual(navigation.loss_started_at, .3)
+        self.clock.return_value = .4
+        navigation.update([bottle(90, 100)], 640, 480)
+        self.assertIsNone(navigation.loss_started_at)
+        self.clock.return_value = .8
+        self.assertEqual(navigation.update([], 640, 480).command, "d")
+        self.clock.return_value = 1.1
+        self.assertEqual(navigation.update([], 640, 480).command, "d")
+        self.clock.return_value = 1.201
+        self.assertEqual(navigation.update([], 640, 480).command, "s")
+
+    def test_hold_never_delays_bottom_or_explicit_stop(self):
+        navigation = Navigation()
+        navigation.update([bottle(320, 370)], 640, 480)
+        self.clock.return_value = .1
+        self.assertEqual(navigation.update([bottle(320, 384)], 640, 480).command, "s")
+        self.assertEqual(navigation.update([], 640, 480).command, "s")
+        navigation = Navigation()
+        navigation.update([bottle(80, 100)], 640, 480)
+        self.assertEqual(navigation.update([], 640, 480).command, "d")
+        self.assertEqual(navigation.stop().command, "s")
+        self.assertEqual(navigation.update([], 640, 480).command, "s")
+
+    def test_zero_hold_restores_immediate_stop(self):
+        with patch("navigation.COMMAND_HOLD_MS", 0):
+            navigation = Navigation()
+            navigation.update([bottle(80, 100)], 640, 480)
+            self.assertEqual(navigation.update([], 640, 480).command, "s")
 
     def test_autonomous_approach_updates_until_bottom(self):
         navigation = Navigation(target_max_distance_px=300)

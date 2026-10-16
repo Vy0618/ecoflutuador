@@ -10,7 +10,7 @@ from config import load_config
 
 
 class NavigationConfigTests(unittest.TestCase):
-    def load_profile(self, navigation):
+    def load_profile(self, navigation, processing=None):
         profile = json.loads((ROOT / "config.json").read_text())
         for key in ("model_path", "config_path", "labels_path"):
             profile["ssd_mobilenet"][key] = str(ROOT / profile["ssd_mobilenet"][key])
@@ -18,6 +18,8 @@ class NavigationConfigTests(unittest.TestCase):
             profile.pop("navigation", None)
         else:
             profile["navigation"] = navigation
+        if processing is not None:
+            profile["image_processing"].update(processing)
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "config.json"
             path.write_text(json.dumps(profile))
@@ -40,6 +42,12 @@ class NavigationConfigTests(unittest.TestCase):
         ):
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 self.load_profile({key: value})
+
+    def test_rejects_invalid_image_processing_limits(self):
+        for key, value in (("max_width", 0), ("max_height", -1),
+                           ("max_width", 320.5), ("max_height", True)):
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                self.load_profile(None, {key: value})
 
 
 if __name__ == "__main__":

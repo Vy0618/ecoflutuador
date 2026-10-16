@@ -87,8 +87,9 @@ dos ESCs e a parada por timeout independentemente da execução do Python.
 | `tests/` | Testes Python e simulação C++ do firmware |
 | `docs/` | Guias de hardware e registros das revisões |
 
-O reconhecimento executa com os módulos e modelos locais. Os diretórios das
-versões anteriores e `aquamonitor/` permanecem como referências históricas.
+O reconhecimento executa com os módulos e modelos locais. A origem no AquaMonitor
+e as referências às versões anteriores estão registradas em `models/origem.json`
+e nos relatórios em `docs/`.
 
 ### Fluxograma de execução
 
@@ -115,7 +116,7 @@ flowchart TD
     K --> L
     L -->|Não| R[Registrar a decisão]
     L -->|Sim| T[Enviar mudança ou heartbeat quando necessário]
-    T --> P{OLED_TEST habilitado?}
+    T --> P{Saída OLED selecionada?}
     P -->|Sim| O[ESP32 exibe o comando no OLED]
     P -->|Não| Q[ESP32 controla os ESCs]
     O --> ACK[Aguardar confirmação, se houve envio]
@@ -147,8 +148,11 @@ do objeto entrar na faixa inferior não provoca mais a parada.
 A seleção inicial prioriza a maior área, depois confiança e coordenadas para
 desempate. Depois o alvo é associado por sobreposição das caixas ou distância
 entre centros. A histerese evita trocas excessivas de direção nas divisórias.
-Uma perda do alvo provoca parada na primeira inferência sem associação; a
-referência é liberada após três inferências ausentes, conforme a configuração.
+Uma perda breve mantém o último movimento por até 1000 ms desde a primeira
+inferência que identifica a perda. A constante `COMMAND_HOLD_MS` em `navigation.py` define esse prazo;
+`0` desativa a permanência. A referência só é liberada após o prazo e o número
+configurado de inferências ausentes. Ao reencontrar o alvo, a contagem é zerada;
+uma perda posterior inicia outro prazo. Ausências consecutivas não o reiniciam.
 
 A faixa inferior indica proximidade para a rede. **Ela não confirma coleta
 física e não incrementa um contador de garrafas coletadas.**
@@ -165,7 +169,7 @@ Os argumentos `--output oled|motors` e `--ultrasonic`/`--no-ultrasonic`
 configuram o firmware pela UART. O padrão é OLED sem sensor; `motors` habilita
 o sensor por padrão. Grave esta versão uma vez; a troca de modo entre execuções
 não exige editar nem regravar o firmware. A ESP32 anuncia `CONFIG_REQUIRED`
-na inicialização e só prepara as saídas após uma configuração válida.
+na inicialização e só prepara o acionamento após uma configuração válida.
 No teste contínuo, a configuração informa `INICIAR:1` sem depender do HC-SR04.
 O passo a passo está no [guia OLED](docs/TESTE_OLED.md).
 
@@ -182,14 +186,19 @@ que atravessarem uma transição são descartados.
 
 A renovação depende da captura e da inferência. Uma falha solicita parada e
 encerra a execução. Se a comunicação ficar indisponível, o watchdog da ESP32
-aplica a parada após três segundos. A ausência de um alvo válido também produz
-`s` na primeira inferência sem associação.
+aplica a parada após três segundos. Sem um alvo anterior, a decisão é `s`;
+se um alvo acompanhado desaparecer, a parada ocorre ao vencer a permanência.
+O ciclo verifica o vencimento também entre inferências. A permanência não adia
+a parada na faixa inferior, em falhas ou no fim da janela ultrassônica.
 
 No modo motores, `s` aplica o pulso mínimo de 1000 µs aos dois ESCs. O firmware
 usa PWM de 50 Hz, resolução de 16 bits e pulsos de 1000–2000 µs. A potência
 inicial é 30% por ESC, com alvo de 1300 µs. Há armamento de três segundos e rampa
-não bloqueante de 15 µs a cada 20 ms. No modo OLED, a tela mostra a decisão
-interpretada e nenhum PWM é gerado.
+não bloqueante de 15 µs a cada 20 ms. No modo OLED, nenhum PWM é gerado.
+A tela é inicializada ao ligar e mostra o comando interpretado e a distância
+em centímetros nos dois modos. Sem leitura válida, mostra `Dist: sem eco`.
+O HC-SR04 é medido a cada 100 ms mesmo com `--no-ultrasonic`; esse argumento
+dispensa apenas a ativação por proximidade e o limite de 30 segundos.
 
 ### Visualização e registros
 
@@ -228,9 +237,8 @@ entre GPIOs e funções UART está no
 [datasheet do ESP32-WROOM-32](https://documentation.espressif.com/esp32-wroom-32_datasheet_en.html).
 
 O motor esquerdo usa o ESC 1, com sinal no GPIO 12; o motor direito usa o ESC 2,
-com sinal no GPIO 14. No código atual, o OLED usa `OLED_SDA=23` e `OLED_SCL=22`.
-Confira se os fios do teste correspondem a esses valores; os diagramas de
-hardware registram uma montagem informada anteriormente, com outros pinos I²C.
+com sinal no GPIO 14. O OLED usa **SDA no GPIO23** e **SCL no GPIO22**,
+conforme a montagem confirmada e os diagramas de hardware.
 Os ESCs exigem alimentação de potência própria e referência de GND com a ESP32;
 os detalhes da ligação física ainda precisam ser confirmados.
 
@@ -248,8 +256,7 @@ sete jumpers Raspberry–ESP32–OLED, sem o sensor.
 O [guia de hardware](docs/HARDWARE.md) reúne as tabelas de pinagem, todos os GPIOs
 utilizados, os diagramas SVG e Mermaid e as orientações elétricas para a montagem
 Raspberry Pi–ESP32–OLED. Ele distingue a numeração BCM dos pinos físicos da
-Raspberry e registra a incompatibilidade I²C entre os fios informados e o firmware,
-que permanece pendente de correção.
+Raspberry e documenta a ligação do OLED com SCL22/SDA23.
 
 Os procedimentos de instalação, gravação e execução continuam no
 [guia de testes](docs/testes.md).

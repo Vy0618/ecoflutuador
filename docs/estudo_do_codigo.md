@@ -1,11 +1,9 @@
 # Estudando o código do EcoFlutuador V4.1
 
-> Atualização de 15/10/2026: a seleção de OLED/motores e ultrassônico passou a
-> usar `--output oled|motors` e `--ultrasonic`/`--no-ultrasonic`, com mensagens
-> `CONFIG` pela UART. Os trechos abaixo que mostram constantes de modo e o
-> protocolo anterior são referências da versão estudada originalmente.
-> A parada na faixa inferior também passou a usar o centro da caixa, em vez de `ymax`.
-> Veja os comandos e o protocolo atual em [testes.md](testes.md).
+Referência do código revisado em **16/10/2026**. A saída OLED/motores e o uso
+do ultrassônico são escolhidos pelo Python e enviados pela UART. A parada
+na faixa inferior usa o centro da caixa. Os comandos de execução completos
+estão em [testes.md](testes.md).
 
 Este texto foi escrito para quem está aprendendo programação e quer entender
 como os arquivos do projeto trabalham juntos. A leitura acompanha uma imagem
@@ -42,7 +40,7 @@ e testes estão em [testes.md](testes.md); a apresentação do projeto está no
 ## 1. Uma visão do programa inteiro
 
 O computador, ou a Raspberry Pi, executa Python. Ele recebe imagens, procura
-uma garrafa, acompanha sua posição e escolhe uma letra. A ESP32 executa o
+um objeto das classes configuradas, acompanha sua posição e escolhe uma letra. A ESP32 executa o
 firmware C++/Arduino: recebe a letra, interpreta o movimento e atualiza os ESCs
 ou a tela OLED.
 
@@ -97,7 +95,7 @@ acessada com expressões como `config["camera"]["fps"]`.
 | `navigation` | Margem de troca de região e critérios para acompanhar o alvo |
 
 Os valores atuais incluem câmera 640×480, limite de entrega de 30 FPS, entrada
-SSD 320×320, confiança mínima 0,45, classe `bottle` e intervalo de inferência
+SSD 320×320, confiança mínima 0,45, classes `bottle` e `cell phone` e intervalo de inferência
 300 ms. São parâmetros distintos: 30 FPS descreve o limite de entrega das
 imagens; 300 ms permite aproximadamente 3,3 inferências por segundo quando o
 processamento acompanha esse ritmo.
@@ -214,8 +212,10 @@ O retorno de `read()` é uma referência à imagem, tratada como somente leitura
 pelo código consumidor. O NumPy não impede que alguém a altere; é um acordo
 entre as partes do programa. `annotate()` faz uma cópia antes de desenhar.
 
-`close()` solicita a parada, espera a thread por um tempo limitado, libera a
-câmera e espera novamente. `Event`, `Condition` e `Thread` permitem coordenar
+`close()` solicita a parada, acorda quem estiver aguardando uma imagem, espera
+a thread por um tempo limitado, libera a câmera e espera novamente.
+Uma chamada a `read()` após o encerramento produz erro, em vez de entregar uma
+imagem antiga. `Event`, `Condition` e `Thread` permitem coordenar
 esse trabalho sem acrescentar uma thread separada para a inferência.
 
 ## 6. `image_processing.py`: reduzir e restaurar coordenadas
@@ -248,8 +248,10 @@ Arquivo: [detection/ssd_mobilenet_detector.py](../detection/ssd_mobilenet_detect
 
 ### Inicialização de `SsdMobileNetDetector`
 
-O construtor carrega a rede com `cv2.dnn.readNetFromTensorflow()`. Também guarda
-o limite de confiança, as dimensões da entrada e o conjunto de classes aceitas.
+O construtor guarda o limite de confiança, as dimensões da entrada e o conjunto
+de classes aceitas. Antes de carregar a rede com `cv2.dnn.readNetFromTensorflow()`,
+verifica se os nomes solicitados existem no arquivo de classes. Assim, um nome
+como `smartphone` gera um erro claro; para celular, o nome COCO é `cell phone`.
 
 Os nomes das classes são lidos de `coco.names`. O número da linha, começando em
 1, é o ID correspondente. No arquivo local, `bottle` está na linha 44.
@@ -280,7 +282,8 @@ formato solicitado, que pode ter outra proporção.
 índice da imagem, ID da classe, confiança, xmin, ymin, xmax, ymax
 ```
 
-O código filtra confiança e classe. Depois converte as coordenadas relativas
+O código filtra confiança e classe e descarta linhas com NaN ou infinito antes
+de converter os valores em inteiros. Depois converte as coordenadas relativas
 em pixels, limita os extremos às dimensões do frame e descarta caixas sem
 largura ou altura positiva.
 
@@ -293,7 +296,7 @@ Caixa: (80, 120, 240, 360)
 Centro: (160, 240)
 ```
 
-O centro dessa caixa está no terço esquerdo e seu `ymax=360` ainda está acima
+O centro dessa caixa está no terço esquerdo e seu `y=240` ainda está acima
 da linha 384.
 A navegação pode então decidir `d`. A confiança 0,87 é um score produzido pelo
 modelo e atende ao filtro 0,45.
@@ -321,7 +324,7 @@ imagem comporta as regiões e mantém a linha inferior dentro do quadro.
 ### `valid_targets()`
 
 Filtra os candidatos que podem ser usados para navegação. Cada candidato deve
-ser uma `Detection` de `bottle`, ter confiança e coordenadas finitas, confiança
+ser uma `Detection` de uma classe permitida, ter confiança e coordenadas finitas, confiança
 entre 0 e 1, caixa com área positiva e extremos dentro do frame. Esse filtro
 protege a decisão contra caixas inválidas.
 
@@ -330,16 +333,16 @@ protege a decisão contra caixas inválidas.
 Produz uma chave de ordenação:
 
 ```text
-(-área, -confiança, x1, y1, x2, y2)
+(-área, -confiança, x1, y1, x2, y2, classe)
 ```
 
 Como a seleção usa `min()`, os sinais negativos priorizam a maior área e a maior
-confiança. As coordenadas resolvem o desempate. A área da caixa é
+confiança. As coordenadas e o nome da classe resolvem o desempate. A área da caixa é
 `(x2 - x1) × (y2 - y1)`.
 
 ### `match_target()`
 
-Procura qual detecção atual corresponde ao alvo anterior. Usa dois critérios:
+Procura qual detecção atual da mesma classe corresponde ao alvo anterior. Usa dois critérios:
 sobreposição das caixas e distância entre centros.
 
 A sobreposição é medida por IoU, uma razão entre a área da interseção e a área
@@ -400,13 +403,17 @@ A função calcula as regiões e valida os candidatos. Na seleção inicial, usa
 a maior caixa conforme a chave de desempate. Nas atualizações seguintes, tenta
 associar uma caixa ao alvo anterior.
 
-Se não encontrar associação, devolve `s` imediatamente. Durante uma perda breve,
-a referência anterior continua guardada. Ao atingir o limite de ausências,
+Se não encontrar associação, inicia `loss_started_at` na primeira perda e mantém
+o último movimento por `COMMAND_HOLD_MS` milissegundos, atualmente 1000.
+O instante é medido com `time.monotonic()`. Ausências consecutivas não reiniciam
+o prazo; reencontrar o alvo zera a contagem para uma perda futura. Sem movimento anterior ou
+com o prazo vencido, devolve `s`. Durante uma perda breve, a referência continua
+guardada. Ao vencer a permanência e atingir o limite de ausências,
 limpa o alvo, a histerese e o estado de aproximação encerrada. Um novo alvo pode
 ser escolhido na atualização seguinte.
 
 Se houver associação, atualiza o alvo e zera o contador de ausências. Depois
-verifica `selected.bbox[3]`, o `ymax`. Se ele alcançou a linha inferior, marca
+verifica `selected.centroid[1]`, o centro vertical. Se ele alcançou a linha inferior, marca
 `approach_complete=True`. Enquanto esse estado permanecer, o resultado continua
 sendo `s`, mesmo que a caixa volte para uma região superior.
 
@@ -434,7 +441,8 @@ do acompanhamento segue as regras de ausência de alvo em `update()`.
 
 `record_navigation()` transforma o resultado e a lista de detecções em campos
 para o log: caixa, centro, confiança, `ymax`, comando e estado. A quantidade
-`garrafas_detectadas` é `len(detections)` daquela inferência.
+`garrafas_detectadas` conta somente os itens de classe `bottle` daquela inferência.
+Um celular pode ser o alvo e gerar comandos sem incrementar esse campo.
 
 ## 10. `object-ident.py`: coordenar os componentes
 
@@ -462,17 +470,26 @@ execuções da rede.
 `--serial-port` preenche `args.serial_port`; `--no-display` altera a opção da
 janela. O programa também rejeita combinações como imagem estática com serial.
 
-A criação dos componentes usa expressões como:
+A configuração da navegação fica em um dicionário reutilizado a cada novo ciclo:
 
 ```python
-Navigation(config["display"]["bottom_zone_ratio"], **config["navigation"])
+navigation_settings = {**config["navigation"], "bottom_zone_ratio": bottom_zone_ratio,
+                       "allowed_classes": config["ssd_mobilenet"]["detection_types"]}
+navigation = Navigation(**navigation_settings)
 ```
 
 O `**` expande um dicionário em argumentos nomeados. Uma chave
 `target_max_distance_px` vira o argumento desse nome no construtor.
 
-No modo webcam, o ciclo principal recebe um frame. Quando chega o prazo da
-próxima inferência, ou a dimensão da imagem mudou, ele executa:
+No modo webcam, o ciclo principal recebe um frame. Sem serial, o reconhecimento
+é contínuo. Com serial, ele consulta `motor_link.poll()` para acompanhar
+`iniciar` e `activation_changed`. Enquanto `iniciar=False`, mantém a decisão de
+parada e o vídeo com as linhas, sem executar inferência.
+
+Quando o reconhecimento está liberado e chega o prazo da próxima inferência,
+ou a dimensão da imagem mudou, o trecho principal faz a sequência abaixo.
+O exemplo mostra a ordem das etapas; o arquivo também verifica a liberação
+depois da inferência e do envio:
 
 ```python
 detections = detect_frame(detector, frame, config)
@@ -489,17 +506,28 @@ A transmissão depende de `motor_link`, criado apenas quando a porta serial é
 informada. Em operação normal, o envio/confirmação precede o registro da decisão.
 A câmera tem sua thread; a inferência acontece nesse ciclo principal.
 
+Uma troca de ativação recria `Navigation` e limpa as caixas e a decisão anterior.
+Isso impede que o alvo ou a parada persistente de uma janela sejam reutilizados
+na próxima. Se a janela acabar durante a inferência, seu resultado é descartado.
+A flag também conserva a mudança quando `INICIAR:0` e `INICIAR:1` chegam juntas.
+
 ### Imagem estática e encerramento
 
-Com `--image` e `--output`, o programa lê uma imagem, detecta, decide, registra
-e salva a anotação. Esse caminho não abre webcam, janela nem serial.
+Com `--image` e `--image-output`, o programa lê uma imagem, detecta, decide,
+registra e salva a anotação. O antigo `--output caminho` continua aceito nesse
+modo. Na webcam com serial, `--output oled|motors` escolhe a saída da ESP32;
+`--ultrasonic` e `--no-ultrasonic` escolhem o uso do sensor.
+O caminho de imagem estática não abre webcam, janela nem serial.
 
 O bloco `try` contém a execução; `except` trata interrupções e erros; `finally`
 libera os recursos, inclusive quando ocorreu uma falha. O encerramento tenta
 confirmar `s`, fecha a serial, registra a decisão de parada, fecha o log, libera
 a câmera e destrói a janela criada.
+Os blocos `finally` garantem que uma falha ao registrar ou fechar o log não
+impeça as tentativas de liberar a câmera e a janela.
 
-Uma falha ao confirmar a parada é informada. Mesmo um retorno normal do programa
+Uma falha ao confirmar a parada é informada e resulta em código de saída 1.
+Mesmo um retorno normal do programa
 não mede o estado físico dos motores: a confirmação e o watchdog são mecanismos
 de software, enquanto o funcionamento real depende da ligação.
 
@@ -545,9 +573,14 @@ de linha. No Python, `decode()` transforma os bytes de volta em string e
 | Mensagem | Origem | Significado |
 |---|---|---|
 | `?` + LF | Python | Consultar o estado; essa consulta também aplica parada |
+| `CONFIG_REQUIRED` | ESP32 | Aguardar a escolha do modo, sem PWM; OLED e medição já iniciados |
+| `CONFIG:OLED:0/1` + LF | Python | Escolher OLED sem/com ultrassônico |
+| `CONFIG:MOTORES:0/1` + LF | Python | Escolher motores sem/com ultrassônico |
+| `CONFIG_OK:<saida>:<sensor>` | ESP32 | Confirmar exatamente a configuração recebida |
 | `CAPS:HEARTBEAT` | ESP32 | Informar que aceita a mensagem `h` |
+| `INICIAR:0` / `INICIAR:1` | ESP32 | Informar espera/liberação do reconhecimento e dos movimentos |
 | `ARMING` | ESP32 | Período de inicialização ainda em andamento |
-| `READY` | ESP32 | Firmware pronto para aceitar movimentos |
+| `READY` | ESP32 | Inicialização concluída; movimentos ainda dependem de `INICIAR:1` |
 | `a`, `w`, `d`, `s` + LF | Python | Solicitar movimento ou parada |
 | `CMD_OK:<letra>` | ESP32 | Confirmar a aceitação da letra |
 | `h` + LF | Python | Renovar o prazo sem modificar o movimento |
@@ -575,6 +608,7 @@ ficam concentrados aqui.
 | `READY_TIMEOUT` | 8 s | Janela de espera pela inicialização |
 | `ACK_TIMEOUT` | 1 s | Janela de espera pela confirmação de comando ou heartbeat |
 | `HEARTBEAT_INTERVAL` | 1 s | Intervalo mínimo para renovar uma decisão repetida |
+| `MAX_REPLY_BYTES` | 128 bytes | Limite do buffer para uma linha de resposta |
 
 A abertura é feita com:
 
@@ -591,10 +625,14 @@ bytes e devolve a quantidade escrita. Veja a
 | Atributo | O que guarda |
 |---|---|
 | `connection` | Objeto da porta serial |
-| `last_command` | Último comando lógico confirmado, como `w` ou `s` |
+| `last_command` | Último comando lógico conhecido, como `w` ou `s` |
 | `last_sent_at` | Tempo registrado depois da última confirmação bem-sucedida |
 | `heartbeat_supported` | Se o firmware anunciou suporte a `h` |
 | `failed` | Se uma falha interrompeu a autorização de novos movimentos |
+| `output` / `ultrasonic` | Saída escolhida e uso do sensor |
+| `iniciar` | Liberação informada pela ESP32 |
+| `activation_changed` | Se houve mudança de liberação ainda não tratada pelo ciclo principal |
+| `reply_buffer` | Parte de uma linha recebida antes da nova linha final |
 
 `last_command` continua sendo `w` quando a renovação enviada é `h`.
 O estado desejado e a mensagem usada para renovar esse estado são informações
@@ -608,16 +646,30 @@ diferentes.
 link = Esp32Link('/dev/ttyAMA0')
 ```
 
-O construtor importa `serial`, abre a porta e inicia os atributos. Depois:
+A saída padrão é OLED, sem sensor. Para controlar motores, use
+`Esp32Link('/dev/ttyAMA0', output='motors')`; nesse caso o sensor é habilitado
+por padrão. O argumento booleano `ultrasonic` permite escolher outra combinação.
+Esses argumentos também são usados pelo programa de reconhecimento.
+
+O construtor valida a escolha, importa `serial`, abre a porta e inicia os
+atributos. Depois:
 
 1. Escreve `b"?\n"` e confere se os dois bytes foram escritos.
-2. Chama `_wait_for("READY", 8)`.
-3. Ao receber a indicação de prontidão, chama `send("s")`.
-4. Aguarda `CMD_OK:s`, confirmando uma parada inicial.
+2. Aguarda `CONFIG_REQUIRED`, ou a prontidão de uma placa já configurada.
+3. Envia `s` e aguarda `CMD_OK:s` antes de mudar a saída.
+4. Envia a configuração escolhida, como `CONFIG:OLED:0`, e exige a confirmação
+   exata `CONFIG_OK:OLED:0`.
+5. Aguarda `READY`, durante a preparação de três segundos da saída.
+6. Envia outra parada forçada e aguarda `CMD_OK:s`.
 
 A criação do objeto só termina normalmente depois dessas etapas. Assim, a
 mensagem “ESP32 pronta; parada inicial confirmada” só pode ser impressa pelo
 código chamador quando o construtor retornou.
+
+O firmware precisa entender `CONFIG`; uma versão antiga que só conhece letras
+de movimento não conclui essa preparação. A configuração é mantida em RAM e
+reaplicada quando o Python cria uma ligação. Sem sensor, o firmware informa
+`INICIAR:1`; com sensor, esse campo acompanha a janela do HC-SR04.
 
 Se ocorrer uma falha durante a consulta ou a espera, o construtor tenta enviar
 parada, fecha a porta e propaga o erro. O `raise` permite que o programa chamador
@@ -630,33 +682,41 @@ adequado para medir intervalos porque não acompanha ajustes do calendário do
 sistema. Sua unidade é segundo. Veja a
 [documentação de time.monotonic](https://docs.python.org/3/library/time.html#time.monotonic).
 
-Enquanto o prazo não termina, a classe executa:
+Enquanto o prazo não termina, a classe lê bytes e os acrescenta a `reply_buffer`.
+Uma leitura pode voltar vazia ou conter apenas parte da resposta. A comparação
+só acontece depois de receber a nova linha. Assim, receber `INIC` agora e
+`IAR:1\n` depois continua formando uma mensagem válida.
+Se 128 bytes chegarem sem uma nova linha, a resposta é rejeitada e a comunicação
+é interrompida com tentativa de parada. Isso impede que uma entrada corrompida
+faça o buffer crescer sem limite.
 
-```python
-reply = self.connection.readline().decode("ascii", errors="replace").strip()
-```
-
-A leitura busca uma linha e está sujeita ao timeout da porta. Uma leitura pode
-voltar vazia quando não chegou resposta. O ciclo continua até reconhecer a
-mensagem esperada ou atingir seu prazo. A sequência `decode(...).strip()`
-permite comparar a resposta com strings como `READY` e `CMD_OK:w`.
+`decode("ascii", errors="replace").strip()` transforma a linha completa em texto
+para comparar com mensagens como `READY` e `CMD_OK:w`.
 
 As respostas recebem tratamentos diferentes:
 
 - `CAPS:HEARTBEAT` atualiza a capacidade do firmware e a espera continua.
+- `INICIAR:0/1` atualiza a liberação. Uma mudança marca `activation_changed`,
+  mesmo se houver desativação e ativação na mesma consulta.
 - A resposta esperada encerra a espera com sucesso.
+- Uma confirmação `CONFIG_OK` diferente da solicitada é rejeitada.
 - `ERROR:...` e `TIMEOUT:s` produzem uma exceção.
-- `READY` ou `ARMING` inesperados durante a operação sinalizam reinicialização.
+- `READY`, `ARMING` ou `CONFIG_REQUIRED` inesperados durante a operação sinalizam reinicialização.
 - Se a resposta esperada não chegar, o método lança `TimeoutError`.
 
-Na primeira parada, mensagens de prontidão duplicadas ainda são toleradas,
-porque `last_command` continua `None`. Depois da primeira confirmação, esse
-atributo permite distinguir a partida inicial de uma reinicialização no meio
-da operação.
+Se `INICIAR:0` chegar durante a espera de um movimento ou heartbeat, a espera
+retorna `False`: o fim normal da janela não é tratado como falha de comunicação.
+`send()` conserva o estado de parada e tenta escrever `s`. Essa parada adicional
+cobre um movimento atrasado que poderia chegar depois de uma nova ativação.
+
+`poll()` reutiliza essa interpretação para consultar os bytes disponíveis sem
+aguardar um ACK. O ciclo principal o chama antes e depois da inferência. Uma
+linha incompleta continua guardada para a próxima chamada. Erros reais de
+comunicação continuam provocando tentativa de parada e encerramento.
 
 O prefixo `_` identifica um método de uso interno por convenção. Ele não cria
 uma barreira de acesso em Python; indica que o restante do programa normalmente
-usa `send()` e `close()`.
+usa `poll()`, `send()` e `close()`.
 
 ### 12.4. `send()`: enviar uma decisão sem repetir movimentos à toa
 
@@ -664,7 +724,10 @@ O método recebe uma das letras `a`, `w`, `d` ou `s`. Letras diferentes geram
 `ValueError` antes de qualquer envio. Os comandos aceitos são minúsculos.
 
 Se `failed=True`, novos movimentos são bloqueados. A parada continua permitida
-para que o encerramento possa tentar enviá-la.
+para que o encerramento possa tentar enviá-la. `send()` também consulta os
+estados pendentes. Se `iniciar=False` ou a troca de ciclo ainda não foi tratada,
+um movimento retorna `False` sem ser transmitido. `force=True` não ignora essa
+verificação.
 
 Em seguida, a classe compara o pedido com `last_command`:
 
@@ -673,18 +736,19 @@ Em seguida, a classe compara o pedido com `last_command`:
 | Comando mudou | Enviar a letra e esperar `CMD_OK:<letra>` |
 | Comando igual, menos de 1 s desde a confirmação | Retornar sem transmitir |
 | Comando igual, 1 s ou mais, firmware aceita heartbeat | Enviar `h` e esperar `HB_OK` |
-| Comando igual, firmware antigo sem heartbeat | Renovar movimento pela própria letra após o intervalo |
+| Comando igual, firmware sem anúncio de heartbeat | Renovar movimento pela própria letra após o intervalo |
 | Parada repetida, firmware sem heartbeat | Manter a parada sem reenviar |
-| `force=True` | Tratar o pedido como envio forçado, mesmo se for igual |
+| `force=True` | Após as verificações de liberação, transmitir mesmo se for igual |
 
 Quando há envio, `write()` deve informar que escreveu a mensagem completa.
 Depois a classe espera a confirmação. Somente após o sucesso atualiza
 `last_command` e `last_sent_at`.
 
 O retorno booleano merece atenção: `True` indica comando novo ou forçado
-confirmado; `False` indica que a decisão lógica continuou igual. Um retorno
-`False` pode acompanhar um heartbeat que foi realmente transmitido.
-O ciclo principal não usa esse retorno para decidir o que mostrar no log.
+confirmado. `False` também pode indicar repetição, heartbeat, movimento bloqueado
+ou janela encerrada durante a confirmação. Por isso, o ciclo principal consulta
+`iniciar` e `activation_changed` para decidir se deve descartar a decisão e
+limpar sua representação no vídeo e no log.
 
 ### 12.5. Um heartbeat depende de novas chamadas
 
@@ -711,8 +775,9 @@ Mesmo se a confirmação da parada falhar, o fechamento da porta é executado.
 
 ### 12.7. Exemplo de conversa completa
 
-Este diagrama representa uma consulta respondida quando a ESP32 já está pronta.
-Na partida, também pode aparecer `ARMING` antes de `READY`.
+Este diagrama mostra a preparação padrão de OLED sem ultrassônico. As mensagens
+terminam em nova linha. Se a placa já estiver configurada, a primeira consulta
+pode informar `READY` ou `ARMING` antes de o Python aplicar a nova configuração.
 
 ```mermaid
 sequenceDiagram
@@ -720,6 +785,15 @@ sequenceDiagram
     participant E as ESP32 / firmware
     P->>E: ? + LF
     E-->>P: CAPS:HEARTBEAT
+    E-->>P: INICIAR:0
+    E-->>P: CONFIG_REQUIRED
+    P->>E: s + LF
+    E-->>P: CMD_OK:s
+    P->>E: CONFIG:OLED:0 + LF
+    E-->>P: CONFIG_OK:OLED:0
+    E-->>P: INICIAR:1
+    E-->>P: ARMING
+    Note over E: Preparação de 3 segundos
     E-->>P: READY
     P->>E: s + LF
     E-->>P: CMD_OK:s
@@ -766,15 +840,23 @@ Com `ECO_SERIAL_USB=0`, `Serial2` é inicializada a 115200, 8N1, RX=16 e TX=17.
 8N1 indica oito bits de dados, sem paridade e um bit de parada. Com
 `ECO_SERIAL_USB=1`, os comandos passam por `Serial` e pelo conversor USB da placa.
 
-A seleção da saída usa uma constante C++:
+A seleção da saída e do sensor usa variáveis booleanas:
 
 ```cpp
-constexpr bool OLED_TEST = true;
+bool usarOled = true;
+bool usarUltrassonico = false;
 ```
 
-`true` escolhe a tela; `false` escolhe os ESCs. `constexpr` indica um valor
-constante conhecido na compilação. Alterar o arquivo exige gerar e gravar outro
-firmware. O programa Python continua enviando as mesmas mensagens.
+`usarOled=true` mantém apenas o teste visual; `false` também aciona os ESCs.
+A tela mostra comando e distância nos dois modos. `usarUltrassonico`
+define se a liberação depende do HC-SR04, cuja distância é medida em todos os modos.
+`configurarSaida()` aplica os valores
+recebidos em uma das quatro mensagens `CONFIG`.
+
+Isso é diferente de `#if ECO_SERIAL_USB`: o canal UART é escolhido na compilação;
+a saída e o sensor são escolhidos pela UART a cada execução. O Python usa
+OLED sem sensor por padrão e motores com sensor por padrão. Não é necessário
+regravar a placa para alternar essas duas escolhas.
 
 ### 13.2. Os atributos que representam o estado da ESP32
 
@@ -783,49 +865,74 @@ firmware. O programa Python continua enviando as mesmas mensagens.
 | `comandoAtual` | Última letra de movimento/parada aceita |
 | `alvo1`, `alvo2` | Pulsos desejados para os ESCs |
 | `atual1`, `atual2` | Pulsos atuais durante a rampa |
-| `pwmPronto` | Inicialização da saída concluída; também é usado no modo OLED |
+| `saidaPronta` | Inicialização da saída concluída, seja OLED ou motores |
+| `oledPronto` | Resultado da inicialização do display, independente do modo de acionamento |
+| `distancia` | Distância atual em centímetros, ou −1 quando não há leitura válida |
+| `usarOled` / `usarUltrassonico` | Opções recebidas pela UART |
+| `iniciar` | Liberação dos movimentos e do reconhecimento |
 | `armado` | O período de espera inicial terminou |
-| `inicio` | Momento da partida |
+| `inicio` | Momento da configuração da saída, usado na preparação |
 | `ultimoComando` | Momento da última renovação aceita |
 | `ultimaRampa` | Momento do último passo da rampa |
+| `inicioTimer` / `ultimaLeitura` | Início da janela e momento da última leitura ultrassônica |
 
 `armado` é uma conclusão baseada no tempo de espera. O firmware não recebe um
-sensor do ESC confirmando seu armamento. Da mesma forma, `pwmPronto` informa o
+sensor do ESC confirmando seu armamento. Da mesma forma, `saidaPronta` informa o
 resultado da inicialização, não uma medição do movimento.
 
-### 13.3. `setup()`: preparar a saída e começar parado
+### 13.3. `setup()` e `configurarSaida()`: iniciar e escolher a saída
 
 `setup()` abre a serial. No modo UART2, também abre `Serial2` com os pinos
-configurados e imprime um diagnóstico de canal pela serial USB.
+configurados. Inicializa TRIG18/ECHO19 e o OLED e mostra `CMD: s` e `Dist: sem eco`.
+Em seguida, envia `CONFIG_REQUIRED`: a placa continua lendo comandos e medindo
+a distância, sem gerar PWM, enquanto aguarda a escolha de operação.
 
-Depois escolhe a saída. No OLED, inicializa `Wire` em SDA=21 e SCL=22 e inicia
-a tela de endereço `0x3C`. Se a inicialização retornar falha, informa
-`ERROR:OLED`. No modo motores, configura os canais ou pinos LEDC conforme a
-versão do core Arduino-ESP32.
+`configurarSaida()` aplica essa escolha depois da mensagem `CONFIG`. Antes,
+mantém a parada e desliga a saída PWM anterior, se existia. Isso permite trocar
+de motores para OLED sem deixar o sinal dos ESCs ativo.
+`desativarPWM()` libera os dois canais e mantém seus GPIOs em nível baixo.
+Também é usado quando apenas um canal inicializa: o canal que funcionou é
+liberado antes de informar `ERROR:PWM`.
 
-Em seguida, aplica `parar()`, guarda o tempo inicial e anuncia `ARMING`.
-O período de três segundos também existe no modo OLED. Enquanto a inicialização
-da saída não tiver sucesso, o ciclo não aceita movimentos.
+O OLED é inicializado em `setup()`, com `Wire` em **SDA=23 e SCL=22** e endereço
+`0x3C`. Se essa inicialização falhou e o teste OLED foi solicitado, informa
+`ERROR:OLED`. No modo motores, a falha da tela não impede o acionamento dos ESCs.
+Esse modo configura os canais ou pinos LEDC conforme a
+versão do core Arduino-ESP32. A ligação confirmada usa SCL22/SDA23;
+veja a tabela de conexões em
+[HARDWARE.md](HARDWARE.md).
+
+TRIG no GPIO18 e ECHO no GPIO19 são configurados independentemente do modo.
+O sensor usa um circuito externo cuja tensão do ECHO deve ser compatível com a
+ESP32; a implementação não faz essa adaptação elétrica.
+
+Após inicializar a saída, aplica `parar()` e reinicia os tempos de preparação,
+rampa e sensor. `iniciar` começa verdadeiro sem sensor e falso com sensor.
+O parser confirma `CONFIG_OK:<saida>:<sensor>`, informa `INICIAR:0/1` e anuncia
+`ARMING`. Depois de três segundos, `loop()` anuncia `READY`. Esse período também
+existe no modo OLED.
 
 ### 13.4. `lerComandos()`: reconstruir mensagens recebidas byte a byte
 
-O parser usa duas variáveis `static`: `entrada` e `invalida`. Uma variável local
-`static` conserva seu valor entre chamadas da função. Isso permite receber a
-letra em uma passagem de `loop()` e a nova linha em outra.
+O parser usa um array `entrada[24]`, um contador `tamanho` e a flag `invalida`.
+Eles são `static`: conservam seu valor entre chamadas da função. Isso permite
+receber parte de uma mensagem em uma passagem de `loop()` e o restante em outra.
+O array comporta as letras e os textos de configuração, com espaço para `\0`,
+o terminador de strings C.
 
 O tratamento segue estas regras:
 
 1. Ler no máximo 64 bytes nessa chamada, enquanto houver dados disponíveis.
 2. Ignorar `\r`, que pode aparecer antes de `\n`.
-3. Guardar o primeiro caractere da mensagem em `entrada`.
-4. Marcar como inválida uma mensagem com outro caractere antes da nova linha.
-5. Ao receber `\n`, interpretar a mensagem completa e limpar os dois estados.
+3. Acrescentar os bytes ao array, respeitando seu tamanho.
+4. Marcar como inválida uma mensagem longa demais ou com byte nulo.
+5. Ao receber `\n`, acrescentar `\0`, interpretar a mensagem e limpar os estados.
 
 Exemplo:
 
 ```text
 Recebe w: guarda a letra; ainda não executa.
-Recebe LF: interpreta w e responde CMD_OK:w.
+Recebe LF: interpreta w; se pronto e liberado, responde CMD_OK:w.
 ```
 
 Já `wa` seguido de LF é uma mensagem inválida: provoca parada e erro. Duas
@@ -833,7 +940,11 @@ mensagens válidas seriam `w` + LF e depois `a` + LF. Uma linha vazia é ignorad
 
 A função encaminha os casos especiais:
 
-- `?` aplica parada e responde com capacidades e prontidão.
+- `CONFIG:...` valida uma das quatro combinações e chama `configurarSaida()`.
+  Configurar durante um movimento aplica parada e produz erro; o Python solicita
+  parada antes de configurar.
+- `?` aplica parada e responde com capacidade, `INICIAR` e prontidão ou
+  `CONFIG_REQUIRED`.
 - `h`, quando armado, atualiza `ultimoComando` e responde `HB_OK`.
 - `a/w/d/s` são tratados por `executarComando()`.
 - Mensagens malformadas provocam parada e `ERROR:COMANDO_INVALIDO`.
@@ -845,7 +956,9 @@ parados.
 ### 13.5. `executarComando()`: interpretar a letra e responder
 
 Primeiro, a função valida a letra. Depois rejeita movimentos enquanto o período
-de armamento não terminou; `s` continua permitido.
+de armamento não terminou; `s` continua permitido. Quando `iniciar=False`, um
+movimento mantém a parada e recebe somente `INICIAR:0`, sem confirmação de
+movimento. A janela pode acabar entre a decisão do Python e a chegada da letra.
 
 Ao aceitar o comando, atualiza o tempo e `comandoAtual`. Para `s`, chama
 `parar()`. Para movimento no modo OLED, chama `mostrarComandoNoOLED()`. Para
@@ -881,20 +994,47 @@ o trecho correspondente.
 Por exemplo, a aproximação de 1000 a 1300 passa por 1015, 1030 e assim por diante.
 A rampa é atualizada a cada intervalo de pelo menos 20 ms, sem um `delay()`
 para cada passo. Dessa forma, o firmware continua lendo a serial.
+Quando os dois pulsos já estão nos alvos, o código evita novas escritas no
+LEDC; o periférico continua gerando o sinal configurado.
 
-`parar()` coloca os alvos e os valores atuais em 1000 µs. No modo motores,
+`parar()` coloca os alvos e os valores atuais em 1000 µs. Se a saída já está
+inicializada, no modo motores
 escreve o mínimo imediatamente. No OLED, mostra `s`. O comando de parada não
 corta a alimentação elétrica dos ESCs.
 
-`mostrarComandoNoOLED()` limpa o buffer da tela, escreve a letra e a interpretação
-e chama `display.display()` para enviar o desenho ao dispositivo. O modo OLED
+`mostrarComandoNoOLED()` limpa o buffer da tela, escreve a letra, a distância em
+centímetros e a interpretação, e chama `display.display()` para enviar o desenho.
+Sem leitura válida, mostra `Dist: sem eco`. A função atende também o modo motores.
+O modo OLED
 não configura PWM nem executa uma simulação da rampa.
 
-### 13.7. `loop()` e o watchdog de comunicação
+### 13.7. `loop()`, ultrassônico e watchdog de comunicação
 
-O ciclo completa o período inicial, marca `armado=true` e anuncia `READY`.
-Depois lê as mensagens, verifica a falta de comunicação e atualiza a rampa
-quando o modo motores está selecionado.
+Sem saída inicializada, o ciclo mede a distância e lê comandos enquanto aguarda
+a configuração, sem liberar movimento. Depois
+de configurado, completa o período inicial, marca `armado=true` e anuncia
+`READY`.
+
+Em todos os modos, mede a cada 100 ms para atualizar o OLED. O disparo usa um pulso TRIG
+de 10 µs; `pulseIn(echoPin, HIGH, 30000UL)` espera o ECHO por até 30 ms. A
+distância é estimada a partir da duração de ida e volta:
+
+```cpp
+float distancia = duracao * 0.0343f / 2.0f;
+```
+
+Quando a ativação por ultrassônico está habilitada e a saída configurada,
+uma duração positiva com distância abaixo de 15 cm inicia uma janela fixa de
+30 segundos e envia `INICIAR:1`. Leituras próximas e heartbeats não reiniciam
+esse prazo enquanto a janela está aberta. Sem eco, a leitura não ativa uma
+janela. Ao expirar, aplica parada e envia `INICIAR:0` antes de interpretar as
+letras recebidas. Uma nova leitura próxima pode iniciar outra janela; não há
+exigência de retirar o objeto do sensor entre elas.
+
+Sem ultrassônico, `iniciar` permanece verdadeiro e não há esse limite de
+30 segundos. O watchdog de comunicação continua funcionando nos dois casos.
+Depois da medição e da expiração, o ciclo lê mensagens, verifica a falta de
+comunicação e atualiza a rampa quando o modo motores está selecionado.
 
 A condição de timeout usa:
 
@@ -937,8 +1077,9 @@ Essa é a explicação para o problema de usar `/dev/ttyAMA0` com o perfil USB:
 o Python abre a UART dos GPIOs da Pi, enquanto o firmware recebe por outro canal.
 Escolher a porta e escolher o perfil de firmware são etapas distintas.
 
-`OLED_TEST` continua sendo uma seleção de saída no C++. O perfil determina o
-canal de comunicação; ambos precisam ser compreendidos ao estudar o programa.
+O perfil determina o canal de comunicação. As variáveis `usarOled` e
+`usarUltrassonico` são aplicadas pelas mensagens `CONFIG`, sem novos perfis
+de compilação para cada combinação.
 
 ## 15. `command_log.py`: registrar para entender o programa
 
@@ -968,7 +1109,7 @@ instância de `CommandLog`.
 
 Ao interpretar o log, separe três informações:
 
-- `garrafas_detectadas`: quantidade de detecções na inferência atual.
+- `garrafas_detectadas`: quantidade de detecções `bottle` na inferência atual.
 - `mudou_comando`: comparação entre a decisão atual e a anterior.
 - `comando`: estado de movimento decidido, inclusive quando foi mantido.
 
@@ -1033,6 +1174,7 @@ Você pode ler um teste como uma pequena pergunta sobre o comportamento esperado
 |---|---|
 | [test_camera_fps.py](../tests/test_camera_fps.py) | A entrega respeita o FPS e usa uma imagem recente? |
 | [test_config_navigation.py](../tests/test_config_navigation.py) | Os padrões e parâmetros inválidos são tratados? |
+| [test_detector.py](../tests/test_detector.py) | Classes, confiança, caixas e valores inválidos da rede são tratados corretamente? |
 | [test_navigation.py](../tests/test_navigation.py) | Qual alvo é escolhido e quando a decisão deve mudar ou parar? |
 | [test_esp32_link.py](../tests/test_esp32_link.py) | Como consulta, confirmação, heartbeat e falhas afetam os envios? |
 | [test_video_display.py](../tests/test_video_display.py) | O ciclo principal integra vídeo, navegação e serial corretamente? |
@@ -1047,13 +1189,20 @@ ACK ausente, escrita incompleta ou reinicialização sem ligar uma ESP32.
 casos usam a navegação e a classe serial reais com uma porta simulada, conferindo
 a integração entre decisões e mensagens.
 
-`test_firmware.py` compila versões temporárias do sketch com o modo OLED ou
-motores selecionado explicitamente. Os programas
+`test_firmware.py` compila o sketch com substitutos de Arduino e dos dispositivos.
+Os testes enviam mensagens `CONFIG` para selecionar OLED ou motores e o uso do
+sensor, como faz o programa real. Os programas
 [firmware_behavior.cpp](../tests/firmware_behavior.cpp) e
 [firmware_oled.cpp](../tests/firmware_oled.cpp) usam os substitutos em
 [firmware_stubs/](../tests/firmware_stubs/) para verificar pulsos, parada, rampa,
 mensagens e tela. As chamadas de PWM são contadas para conferir que o modo OLED
 não as executa.
+
+[firmware_configuration.cpp](../tests/firmware_configuration.cpp) exercita
+mensagens de configuração, trocas de saída e pedidos inválidos. Os casos de
+sensor conferem o limiar de distância, a expiração, a reativação e a volta do
+contador de tempo. Nos testes Python, a expiração pode ser simulada durante
+uma inferência ou uma espera de ACK, sem câmera ou placa físicas.
 
 Essas verificações demonstram o comportamento modelado pelo software. Ensaios
 com a placa, os ESCs e a embarcação verificam a resposta física.
@@ -1068,7 +1217,7 @@ from detection.types import Detection
 from navigation import Navigation
 
 navigation = Navigation()
-positions = [(80, 100), (120, 100), (210, 100), (210, 150), (210, 140)]
+positions = [(80, 100), (120, 100), (210, 100), (210, 160), (210, 150)]
 
 for x, y in positions:
     detection = Detection('bottle', 0.95, (x - 10, y - 10, x + 10, y + 10))
@@ -1088,8 +1237,8 @@ direita s True
 ```
 
 A imagem simulada tem divisórias em 100 e 200 e linha inferior em 160. A caixa
-é um quadrado de 20 pixels. Na quarta posição, o centro está em `y=150`, mas
-`ymax=160`; por isso a aproximação termina. Na quinta, `ymax` recua para 150,
+é um quadrado de 20 pixels. Na quarta posição, o centro está em `y=160` e
+alcança a linha; por isso a aproximação termina. Na quinta, o centro recua para 150,
 e a região volta a ser direita. O comando continua `s` por causa do estado
 `approach_complete`.
 
@@ -1099,9 +1248,9 @@ Ele não abre porta serial nem aciona saídas da placa.
 
 Para explorar o código, tente estas alterações no exemplo:
 
-1. Passe uma lista vazia em uma atualização e observe a parada imediata.
-2. Passe três listas vazias seguidas e acrescente `print(navigation.target)`
-   para observar quando a referência é liberada.
+1. Passe uma lista vazia logo após uma detecção e observe a permanência do comando.
+2. Passe três listas vazias após o prazo de permanência e acrescente
+   `print(navigation.target)` para observar quando a referência é liberada.
 3. Acrescente outra garrafa maior, distante do alvo, e observe o acompanhamento.
 4. Mova o centro poucos pixels ao redor de uma divisória e observe a histerese.
 5. Leia `test_esp32_link.py` para acompanhar quais bytes seriam escritos quando

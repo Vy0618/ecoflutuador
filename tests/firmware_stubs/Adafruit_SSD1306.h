@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include "Wire.h"
@@ -36,5 +37,10 @@ class Adafruit_SSD1306 {
   template <typename T> void println(const T& value) {
     print(value);
     buffer += '\n';
+  }
+  void print(float value, int decimals) {
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(decimals) << value;
+    buffer += stream.str();
   }
 };

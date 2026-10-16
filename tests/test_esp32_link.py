@@ -63,8 +63,12 @@ class FakeSerial:
     def in_waiting(self):
         return sum(map(len, self.replies))
 
-    def readline(self):
-        return self.replies.popleft() if self.replies else b""
+    def readline(self, size=-1):
+        reply = self.replies.popleft() if self.replies else b""
+        if 0 <= size < len(reply):
+            self.replies.appendleft(reply[size:])
+            return reply[:size]
+        return reply
 
     def close(self):
         self.closed = True
@@ -365,6 +369,23 @@ class Esp32LinkTests(unittest.TestCase):
                 link.send("x")
             self.assertEqual(len(device.messages), count)
             link.close()
+
+    def test_overlong_reply_aborts_and_requests_stop(self):
+        for chunks in ((b"x" * 5000,), (b"x" * 100, b"x" * 100)):
+            device = FakeSerial()
+            with self.subTest(chunks=len(chunks)), patch("serial.Serial", return_value=device):
+                link = Esp32Link("test-port")
+                link.send("w")
+                device.replies.extend(chunks)
+                with self.assertRaisesRegex(RuntimeError, "128 bytes"):
+                    link.poll()
+                self.assertTrue(link.failed)
+                self.assertEqual(device.command, "s")
+                self.assertLessEqual(len(link.reply_buffer), link.MAX_REPLY_BYTES)
+                # A porta deve fechar mesmo que a entrada continue corrompida.
+                with self.assertRaises(RuntimeError):
+                    link.close()
+                self.assertTrue(device.closed)
 
 
 if __name__ == "__main__":

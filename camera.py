@@ -75,9 +75,11 @@ class LatestFrameCamera:
                 raise RuntimeError("Camera encerrada")
         with self.condition:
             ready = self.condition.wait_for(
-                lambda: self.fresh_frame or self.error is not None,
+                lambda: self.fresh_frame or self.error is not None or self.stopped.is_set(),
                 timeout=5,
             )
+            if self.stopped.is_set():
+                raise RuntimeError("Camera encerrada")
             if self.error is not None:
                 raise RuntimeError("Falha na captura da câmera.") from self.error
             if not ready:
@@ -88,6 +90,8 @@ class LatestFrameCamera:
 
     def close(self):
         self.stopped.set()
+        with self.condition:
+            self.condition.notify_all()
         self.thread.join(timeout=1)
         self.camera.release()
         self.thread.join(timeout=1)

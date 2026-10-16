@@ -9,7 +9,8 @@ O Python e a captura USB existentes são usados sem alteração.
 Para conferir a interpretação antes de ter os motores, use o
 [teste OLED](TESTE_OLED.md), com `--output oled` no Python. Para acionar os motores,
 use `--output motors`; o sensor é habilitado por padrão. `--ultrasonic` e
-`--no-ultrasonic` escolhem explicitamente o uso do HC-SR04. Grave o firmware
+`--no-ultrasonic` escolhem se a ativação depende do HC-SR04; a medição continua
+nos dois casos para exibir a distância. Grave o firmware
 atualizado uma vez; a troca de modo passa pela UART, sem editar o sketch.
 
 ## Ligação
@@ -24,6 +25,8 @@ A numeração GPIO e a numeração física do conector da Pi são diferentes.
 Na ESP32, 16 e 17 são números GPIO. A conexão cruza TX com RX e compartilha GND.
 Os sinais são TTL de 3,3 V; não use sinais de 5 V ou RS-232 nesses GPIOs.
 O retorno ESP32→Pi é necessário para `READY`, `CMD_OK` e `HB_OK`.
+Os números das UARTs são próprios de cada placa: a UART0 da Raspberry pode
+conversar com a UART2 da ESP32.
 
 Os motores continuam na pinagem existente: ESC 1, motor esquerdo, GPIO 12;
 ESC 2, motor direito, GPIO 14. Os ESCs usam sua alimentação própria e compartilham
@@ -39,12 +42,15 @@ strapping está descrita no [datasheet do ESP32](https://documentation.espressif
 O sketch principal usa UART2 a 115200 baud, 8N1, RX=16 e TX=17. Todos os comandos
 e respostas passam por `SerialComando`, associado a `Serial2`. A UART0/USB fica
 para programação. O firmware anuncia `CONFIG_REQUIRED` na UART selecionada e
-aguarda a configuração enviada pelo Python antes de inicializar a saída.
+aguarda a configuração enviada pelo Python antes de preparar o acionamento.
+O OLED e a medição de distância já são inicializados ao ligar a placa.
 
 Na Arduino IDE, abra `firmware/ControleESP32/ControleESP32.ino`, selecione ESP32
 Dev Module e grave o sketch com `ECO_SERIAL_USB=0`, seu valor padrão.
 
-Com PlatformIO, compile o perfil padrão:
+Com o PlatformIO atualizado descrito em [testes.md](testes.md#firmware-e-ferramentas),
+compile o perfil padrão. Neste computador, `.venv/bin/pio` também pode ser usado
+no lugar de `pio`; esse atalho local precisa ser preparado em cada máquina:
 
 ```bash
 pio run --project-dir firmware/ControleESP32 --environment esp32
@@ -144,6 +150,9 @@ PY
 
 O armamento leva três segundos. Uma falha de `READY` ou `CMD_OK:s` deve ser
 resolvida na ligação, firmware, porta ou permissões antes do teste com motores.
+O exemplo acima configura OLED sem exigir disparo. Para conferir também a
+preparação dos ESCs, use `Esp32Link('/dev/ttyAMA0', output='motors')`; isso não
+solicita movimento. O modo escolhido é reaplicado ao iniciar o reconhecimento.
 
 ## Operação e teste
 
@@ -165,7 +174,9 @@ confira a alimentação e a adaptação do ECHO no [guia de hardware](HARDWARE.m
 No primeiro ensaio de acionamento, remova as hélices. Apresente uma garrafa
 nas regiões esquerda, centro e direita e confira os comandos `d`, `w`, `a` e
 os motores correspondentes. Faça o centro da caixa atingir a linha e
-confirme `s`. Retire o alvo e confira a parada. A ausência de mensagens recentes
+confirme `s`. Retire o alvo e confira a parada após `COMMAND_HOLD_MS`, atualmente
+1000 ms desde a primeira perda identificada. A chegada à faixa inferior continua
+parando imediatamente. A ausência de mensagens recentes
 deve resultar em parada pelo watchdog após três segundos.
 
 O terminal mostra região, objeto, quantidade de detecções e comando de movimento.

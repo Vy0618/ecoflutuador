@@ -1,18 +1,12 @@
 # Hardware do EcoFlutuador
 
-Referência da montagem informada e do código revisado em **15/10/2026**.
+Referência da montagem informada e do código revisado em **16/10/2026**.
 Este documento descreve a Raspberry Pi 5, a ESP32-WROOM-32 e o display OLED,
 incluindo as conexões conhecidas e as verificações que ainda faltam.
 Os procedimentos de instalação, gravação e execução estão em [testes.md](testes.md).
 
-> **Divergência que impede validar o OLED com essa montagem:** os fios informados
-> são **GPIO21 → SCL** e **GPIO22 → SDA**, mas o firmware configura
-> `Wire.begin(OLED_SDA, OLED_SCL)`, com **SDA=23/SCL=22** no arquivo atual.
-> A ordem dos argumentos é **SDA, SCL**. Os diagramas abaixo preservam
-> os fios informados; não representam uma configuração já compatível com o
-> firmware. Seus avisos reproduzem a revisão anterior, SDA21/SCL22.
-> Para testar com o código atual, confira os fios SDA23/SCL22 descritos no
-> [guia OLED](TESTE_OLED.md). Os pinos não foram alterados nesta correção.
+A ligação do OLED confirmada é **GPIO22 → SCL** e **GPIO23 → SDA**,
+correspondente a `Wire.begin(OLED_SDA, OLED_SCL)`, com SDA=23 e SCL=22.
 
 ## 1. Componentes e responsabilidades
 
@@ -25,11 +19,13 @@ Os procedimentos de instalação, gravação e execução estão em [testes.md](
 | HC-SR04 | Libera reconhecimento e movimentos por 30 s ao detectar distância válida abaixo de 15 cm | TRIG18/ECHO19 no código; alimentação e adaptação elétrica reais: **Pendentes de confirmação** |
 | Dois ESCs e motores brushless | Propulsão quando o firmware estiver no modo de motores | GPIOs dos sinais definidos; modelos, conectores e alimentação real: **Pendente de confirmação** |
 
-As variáveis `OLED_TEST` e `USAR_ULTRASSONICO` são configuradas pela UART a partir
+As opções `usarOled` e `usarUltrassonico` são configuradas pela UART a partir
 de `--output oled|motors` e `--ultrasonic`/`--no-ultrasonic` no Python. O padrão
 é OLED sem sensor; com motores, o sensor é habilitado por padrão. Na inicialização,
 a ESP32 anuncia `CONFIG_REQUIRED` e aguarda a configuração, sem gerar PWM.
-No modo OLED, os comandos aparecem na tela e nenhum PWM é gerado. A alimentação
+O OLED mostra comando e distância desde a inicialização, inclusive no modo motores.
+No modo OLED, nenhum PWM é gerado. A medição do HC-SR04 continua nos dois modos;
+`--no-ultrasonic` dispensa apenas a ativação por proximidade. A alimentação
 da Raspberry e a entrada de alimentação da placa ESP32 não foram informadas;
 não há fio de alimentação entre essas duas placas nos diagramas.
 
@@ -51,7 +47,7 @@ conectar. [Referência do conector da Raspberry](https://gpiozero.readthedocs.io
 
 Na ESP32, os nomes **RX2/TX2** correspondem, nesta configuração, a
 **GPIO16/GPIO17**; RX0/TX0 normalmente correspondem a GPIO3/GPIO1. Aqui,
-**D21/D22 significam GPIO21/GPIO22**, conforme a identificação fornecida para
+**D22/D23 significam GPIO22/GPIO23**, conforme a identificação fornecida para
 esta placa. Não são números físicos do módulo WROOM ou do conector da Raspberry.
 A posição real desses terminais deve ser identificada pela serigrafia da placa.
 [Pinagem do ESP32-WROOM-32](https://documentation.espressif.com/esp32-wroom-32_datasheet_en.html).
@@ -71,10 +67,13 @@ Python aguarda as respostas da ESP32. Esses três fios não alimentam as placas.
 
 ### ESP32 → OLED: I²C e alimentação
 
+Pinagem confirmada para o OLED, também descrita em
+[TESTE_OLED.md](TESTE_OLED.md#ligação):
+
 | Componente de origem | Pino de origem | Componente de destino | Pino de destino | Função |
 |---|---|---|---|---|
-| ESP32 | **D21 / GPIO21** | OLED | **SCL** | Clock I²C, conforme a montagem informada |
-| ESP32 | **D22 / GPIO22** | OLED | **SDA** | Dados I²C e confirmação ACK, conforme a montagem informada |
+| ESP32 | **D22 / GPIO22** | OLED | **SCL** | Clock I²C |
+| ESP32 | **D23 / GPIO23** | OLED | **SDA** | Dados I²C e confirmação ACK |
 | ESP32 | GND | OLED | GND | Referência elétrica comum |
 | ESP32 | **3V3** | OLED | **VCC** | Alimentação informada de 3,3 V |
 
@@ -103,10 +102,9 @@ explica a adaptação do ECHO.
 
 ## 4. Diagrama das conexões físicas
 
-![Conexões físicas informadas: UART cruzada, terra comum e OLED I²C com divergência de SDA/SCL indicada](images/wiring-diagram.svg)
+![Conexões físicas: UART cruzada, terra comum e OLED com SCL22/SDA23](images/wiring-diagram.svg)
 
-O desenho registra a montagem e o código da revisão de 13/10/2026; os avisos
-nele ainda mencionam SDA21/SCL22. No firmware atual, os valores são SDA23/SCL22.
+O desenho representa a pinagem confirmada SCL22/SDA23.
 O desenho usa representações funcionais das placas, com jumpers e terminais
 identificados individualmente. **Não é um desenho em escala nem um mapa da
 posição física dos conectores.** Os dois terminais GND desenhados na ESP32
@@ -133,9 +131,9 @@ UART → interpretação na ESP32 → atualização do OLED por I²C. No modo de
 a última etapa passa a ser a geração de PWM para os ESCs. O OLED é um teste
 visual da interpretação do comando, não uma medição de movimento do barco.
 
-Este diagrama mostra a arquitetura desejada e as conexões informadas, incluindo
-o aviso de que o I²C ainda diverge do firmware. A imagem SVG foi exportada do
-mesmo código Mermaid apresentado abaixo. Ele antecede a integração do HC-SR04;
+Este diagrama mostra a arquitetura e as conexões confirmadas, com SCL22/SDA23.
+A imagem SVG representa o mesmo fluxo do código Mermaid apresentado abaixo.
+Ele antecede a integração do HC-SR04;
 o sensor e as mensagens `INICIAR:1/0` são descritos no texto, sem mudar o desenho.
 
 ![Arquitetura de comunicação: UART bidirecional entre Raspberry e ESP32, I²C e alimentação do OLED](images/hardware-overview.svg)
@@ -143,7 +141,7 @@ o sensor e as mensagens `INICIAR:1/0` são descritos no texto, sem mudar o desen
 ```mermaid
 flowchart TB
     accTitle: Comunicação entre Raspberry Pi 5, ESP32 e OLED
-    accDescr: UART entre Raspberry Pi e ESP32, I2C entre ESP32 e OLED, alimentação do OLED e terra comum. A ligação OLED informada usa SCL no GPIO21 e SDA no GPIO22 e é incompatível com a configuração atual do firmware.
+    accDescr: UART entre Raspberry Pi e ESP32, I2C entre ESP32 e OLED com SCL no GPIO22 e SDA no GPIO23, alimentação do OLED e terra comum.
 
     PI["Raspberry Pi 5<br/>Visão computacional e decisão<br/>TX: GPIO14 / pino físico 8<br/>RX: GPIO15 / pino físico 10"]
     ESP["ESP32-WROOM-32<br/>Recebe e interpreta os comandos<br/>UART2: RX2/GPIO16 · TX2/GPIO17<br/>Mestre do barramento I2C"]
@@ -152,8 +150,8 @@ flowchart TB
     PI -->|"UART TTL 3,3 V · 115200 baud · 8N1<br/>a / w / d / s, consulta ?, heartbeat h + LF<br/>GPIO14/TX, pino 8 → RX2/GPIO16"| ESP
     ESP -->|"UART: READY / CMD_OK / HB_OK + LF<br/>TX2/GPIO17 → GPIO15/RX, pino 10"| PI
 
-    ESP -->|"SCL: clock do mestre → OLED<br/>GPIO21 / D21 → SCL · ligação informada"| OLED
-    ESP <-->|"SDA: dados e ACK nos dois sentidos<br/>GPIO22 / D22 ↔ SDA · ligação informada"| OLED
+    ESP -->|"SCL: clock do mestre → OLED<br/>GPIO22 / D22 → SCL"| OLED
+    ESP <-->|"SDA: dados e ACK nos dois sentidos<br/>GPIO23 / D23 ↔ SDA"| OLED
     ESP -->|"Alimentação do OLED<br/>ESP32 3V3 → VCC"| OLED
 
     GND["GND comum: Pi ↔ ESP32 ↔ OLED<br/>Pino físico GND da Pi: a confirmar"]
@@ -161,8 +159,6 @@ flowchart TB
     ESP --- GND
     OLED --- GND
 
-    WARN["ATENÇÃO: ligação informada ≠ firmware atual<br/>Wire.begin(21,22) configura SDA21 / SCL22<br/>A montagem informada usa SCL21 / SDA22<br/>I2C não compatível até alinhar código e ligação"]
-    ESP -.-> WARN
     PENDING["Pendente: modelo exato e posição física<br/>dos conectores da placa ESP32 e do módulo OLED"]
     OLED -.-> PENDING
 
@@ -170,13 +166,11 @@ flowchart TB
     classDef esp fill:#e8f7ee,stroke:#2c7950,stroke-width:2px,color:#173d28
     classDef oled fill:#f1edff,stroke:#7451a8,stroke-width:2px,color:#342447
     classDef ground fill:#f1f4f8,stroke:#607084,color:#223145
-    classDef warning fill:#fff0e5,stroke:#bb5019,stroke-width:3px,color:#632707
     classDef pending fill:#fff9e8,stroke:#ac8219,stroke-dasharray:5 3,color:#534115
     class PI pi
     class ESP esp
     class OLED oled
     class GND ground
-    class WARN warning
     class PENDING pending
 
     linkStyle 0 stroke:#0284c7,stroke-width:2px
@@ -185,8 +179,7 @@ flowchart TB
     linkStyle 3 stroke:#7c3aed,stroke-width:2px
     linkStyle 4 stroke:#dc2626,stroke-width:2px
     linkStyle 5,6,7 stroke:#334155,stroke-width:2px
-    linkStyle 8 stroke:#b45309,stroke-width:2px
-    linkStyle 9 stroke:#ac8219,stroke-width:2px
+    linkStyle 8 stroke:#ac8219,stroke-width:2px
 ```
 
 ## 6. Todos os GPIOs usados pela implementação
@@ -203,13 +196,12 @@ da ESP32 são pinos de placas diferentes e têm funções diferentes.**
 | ESP32 | GPIO17 / TX2 | `UART_TX_PIN = 17` | Perfil `esp32`, saída de `Serial2` |
 | ESP32 | GPIO3 / RX0 | RX padrão da UART0 no ESP32 clássico; não declarado como constante no projeto | `Serial`, normalmente ligado ao conversor USB–UART da placa |
 | ESP32 | GPIO1 / TX0 | TX padrão da UART0 no ESP32 clássico; não declarado como constante no projeto | Comandos e respostas no perfil `esp32-usb` |
-| ESP32 | GPIO21 / D21 | SCL na montagem informada anteriormente; não usado pelo firmware atual | Referência histórica dos diagramas |
-| ESP32 | GPIO23 | `OLED_SDA = 23`: SDA do OLED no código atual | `Wire.begin(OLED_SDA, OLED_SCL)` no modo OLED |
-| ESP32 | GPIO22 / D22 | `OLED_SCL = 22`: SCL do OLED no código; SDA na montagem informada anteriormente | Divergência pendente de confirmação física |
-| ESP32 | GPIO12 | `ESC_PIN1`: PWM do ESC1/motor esquerdo | Somente com `OLED_TEST = false` |
-| ESP32 | GPIO14 | `ESC_PIN2`: PWM do ESC2/motor direito | Somente com `OLED_TEST = false` |
-| ESP32 | GPIO18 | TRIG do HC-SR04 | Somente com `USAR_ULTRASSONICO=true` |
-| ESP32 | GPIO19 | ECHO do HC-SR04, após adaptação de nível | Somente com `USAR_ULTRASSONICO=true` |
+| ESP32 | GPIO23 / D23 | `OLED_SDA = 23`: SDA do OLED | `Wire.begin(OLED_SDA, OLED_SCL)` na inicialização, em todos os modos |
+| ESP32 | GPIO22 / D22 | `OLED_SCL = 22`: SCL do OLED | `Wire.begin(OLED_SDA, OLED_SCL)` na inicialização, em todos os modos |
+| ESP32 | GPIO12 | `ESC_PIN1`: PWM do ESC1/motor esquerdo | Somente no modo motores (`usarOled=false`) |
+| ESP32 | GPIO14 | `ESC_PIN2`: PWM do ESC2/motor direito | Somente no modo motores (`usarOled=false`) |
+| ESP32 | GPIO18 | TRIG do HC-SR04 | Medições em todos os modos |
+| ESP32 | GPIO19 | ECHO do HC-SR04, após adaptação de nível | Medições em todos os modos |
 
 O Python usa `pyserial`, não uma biblioteca de controle direto de GPIO. O nome
 da porta serial é passado por `--serial-port`; `config.json` não configura a
@@ -262,15 +254,15 @@ são **minúsculos**, mesmo quando a movimentação é descrita como A/W/D/S.
 | Mensagem enviada | Interpretação na ESP32 | Resposta esperada |
 |---|---|---|
 | `?\n` | Para e informa suporte ao heartbeat, prontidão e liberação pelo sensor | `CAPS:HEARTBEAT`, `INICIAR:0/1` e `CONFIG_REQUIRED`, `ARMING` ou `READY` |
-| `CONFIG:OLED:0\n` / `CONFIG:OLED:1\n` | Seleciona OLED e sensor desabilitado/habilitado | `CONFIG_OK:OLED:0/1`, estado `INICIAR`, `ARMING` e depois `READY` |
-| `CONFIG:MOTORES:0\n` / `CONFIG:MOTORES:1\n` | Seleciona ESCs e sensor desabilitado/habilitado | `CONFIG_OK:MOTORES:0/1`, estado `INICIAR`, `ARMING` e depois `READY` |
+| `CONFIG:OLED:0\n` / `CONFIG:OLED:1\n` | Seleciona teste OLED sem/com ativação por proximidade | `CONFIG_OK:OLED:0/1`, estado `INICIAR`, `ARMING` e depois `READY` |
+| `CONFIG:MOTORES:0\n` / `CONFIG:MOTORES:1\n` | Seleciona ESCs sem/com ativação por proximidade; OLED continua mostrando o estado | `CONFIG_OK:MOTORES:0/1`, estado `INICIAR`, `ARMING` e depois `READY` |
 | `w\n` | Ambos os motores: avançar; no teste, mostrar essa ação | `CMD_OK:w` |
 | `d\n` | Motor direito: virar à esquerda; no teste, mostrar essa ação | `CMD_OK:d` |
 | `a\n` | Motor esquerdo: virar à direita; no teste, mostrar essa ação | `CMD_OK:a` |
 | `s\n` | Parada; no teste, mostrar `Parado` | `CMD_OK:s` |
 | `h\n` | Renovar a validade do estado sem mudar o comando mostrado | `HB_OK` quando pronto (`armado`, após `READY`) |
 
-No modo OLED padrão, `--output oled` desabilita o sensor: a configuração retorna
+No modo OLED padrão, `--output oled` dispensa o disparo do sensor: a configuração retorna
 `INICIAR:1\n` e o reconhecimento funciona continuamente, sem limite de 30 s.
 Nos motores, `--output motors` habilita o sensor por padrão; `--ultrasonic`
 também pode ser escolhido para testar o sensor com OLED. Nesse modo,
@@ -302,8 +294,9 @@ A comunicação bidirecional permite detectar falta de confirmação.
 
 ### O que a tela comprova
 
-`mostrarComandoNoOLED()` desenha `CMD: a/w/d/s` e uma descrição da ação, como
-`Direito: virar esq`. A tela mostra o comando que o firmware interpretou, sem
+`mostrarComandoNoOLED()` desenha `CMD: a/w/d/s`, a distância em centímetros
+(ou `Dist: sem eco`) e uma descrição da ação, como `Direito: virar esq`.
+A tela funciona também no modo motores e mostra o comando interpretado, sem
 comprovar que um motor girou ou que um objeto foi coletado.
 
 Há uma distinção adicional: na biblioteca Adafruit, `display.begin()` não é um
@@ -314,14 +307,14 @@ ser recebidos com a tela apagada**. `ERROR:OLED` não cobre todos os defeitos de
 fiação. É necessário verificar a comunicação I²C e a exibição física.
 [Implementação da Adafruit SSD1306](https://github.com/adafruit/Adafruit_SSD1306/blob/master/Adafruit_SSD1306.cpp).
 
-## 8. Divergências e consistência da documentação
+## 8. Correspondência entre montagem e código
 
 | Item | Montagem informada / diagrama | Código atual | Resultado |
 |---|---|---|---|
 | UART Raspberry → ESP32 | GPIO14/físico 8 → RX2/GPIO16 | RX configurado em 16 | Compatível com perfil `esp32` e UART habilitada na Raspberry |
 | UART ESP32 → Raspberry | TX2/GPIO17 → GPIO15/físico 10 | TX configurado em 17 | Compatível com perfil `esp32` e UART habilitada na Raspberry |
-| SCL do OLED | GPIO21 → SCL | SCL configurado em 22 | **Incompatível** |
-| SDA do OLED | GPIO22 → SDA | SDA configurado em 23 | **Incompatível** |
+| SCL do OLED | GPIO22 → SCL | SCL configurado em 22 | Compatível |
+| SDA do OLED | GPIO23 → SDA | SDA configurado em 23 | Compatível |
 | Alimentação OLED | ESP32 3V3 → VCC | Sem validação elétrica pelo código | Compatibilidade do módulo: **Pendente de confirmação** |
 | Endereço OLED | Endereço físico não informado | `0x3C` | **Pendente de confirmação** |
 | Frequência I²C | Não medida/informada | Nenhuma chamada explícita a `Wire.setClock()` | Valor efetivo depende do core/biblioteca; **Pendente de confirmação** |
@@ -332,19 +325,13 @@ usa apenas os dois primeiros argumentos. Além disso,
 a inicialização feita em `Wire`, sem inverter automaticamente os pinos.
 [API I²C do Arduino-ESP32](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/i2c.html#begin).
 
-Para **preservar os fios informados**, uma correção futura seria configurar
-`Wire.begin(22, 21)` — SDA22/SCL21 — e atualizar o teste correspondente.
-**Essa alteração não foi aplicada.** A outra possibilidade seria mudar a montagem,
-mas isso mudaria a referência fornecida pelo usuário e não é pressuposto aqui.
-
 O teste [firmware_oled.cpp](../tests/firmware_oled.cpp) confere que os pinos
 configurados são `OLED_SDA`/`OLED_SCL`, atualmente 23/22.
 Seus substitutos de `Wire` e SSD1306 apenas simulam chamadas; não verificam
 continuidade, tensão, pull-ups, endereço ou ACK de uma tela real. Os documentos
 [TESTE_OLED.md](TESTE_OLED.md) e [testes.md](testes.md) descrevem os valores atuais.
-O [estudo_do_codigo.md](estudo_do_codigo.md) e os diagramas mantêm a referência
-anterior SDA21/SCL22. A montagem física informada também é histórica e ainda
-precisa ser alinhada com os valores escolhidos no firmware.
+O [estudo_do_codigo.md](estudo_do_codigo.md), as tabelas e os diagramas usam a
+pinagem confirmada SCL22/SDA23.
 
 ## 9. Níveis lógicos, alimentação e incompatibilidades
 
@@ -414,14 +401,12 @@ Raspberry→ESP32 ou Raspberry→sensor presumida aqui. Veja as
 
 1. **Com a alimentação desligada**, identifique os pinos 8/10 e um GND no conector
    da Raspberry. Registre qual pino físico GND foi escolhido; confirme RX2, TX2,
-   D21, D22, GND e 3V3 pela serigrafia da ESP32 e os quatro nomes no OLED.
+   GPIO22, GPIO23, GND e 3V3 pela serigrafia da ESP32 e os quatro nomes no OLED.
 2. Faça os **três jumpers UART/GND** e os **quatro jumpers OLED** conforme as
    tabelas. Não use a posição dos terminais no desenho como pinagem real.
 3. Verifique a alimentação e os níveis de 3,3 V. Confirme continuidade do GND
    compartilhado, ausência de curtos e a tensão dos pull-ups do OLED.
-4. **Resolva a divergência I²C antes de esperar a exibição dos comandos no OLED.** Preservando
-   a montagem informada, será necessária a correção futura SDA22/SCL21 no
-   firmware e no teste. Este documento não aplica essa correção.
+4. Confira as conexões **GPIO22 → SCL** e **GPIO23 → SDA**, conforme a tabela do OLED.
 5. Confira o perfil gravado: para os fios RX2/TX2, deve ser **`esp32`**. Na
    Raspberry, habilite a UART dos GPIOs 14/15 e identifique sua porta. Consulte
    [testes.md](testes.md) para os comandos de gravação e reconhecimento com serial.
@@ -445,7 +430,7 @@ Raspberry→ESP32 ou Raspberry→sensor presumida aqui. Veja as
 | Perfil gravado e dispositivo UART ativo na Raspberry | Confirmar que o software usa os pinos ligados |
 | Modelos de ESCs/motores, alimentação, conectores e aceitação de PWM 3,3 V | Elaborar posteriormente a montagem de propulsão |
 | Calibração e comportamento dos ESCs com pulso 1000 µs | Confirmar a parada física, não apenas o comando lógico |
-| Exibição real do OLED após alinhar SDA/SCL | Confirmar o funcionamento que testes simulados não medem |
+| Exibição real do OLED | Confirmar o funcionamento que testes simulados não medem |
 | Alimentação, variante e adaptação do ECHO do HC-SR04 | Proteger o GPIO19 e confirmar o disparo abaixo de 15 cm |
 
 ## 12. Arquivos examinados e referências
@@ -466,10 +451,10 @@ do modelo e as dependências não definem novos GPIOs do projeto.
 | [platformio.ini](../firmware/ControleESP32/platformio.ini) | Perfis UART2/USB, placa alvo e bibliotecas |
 | [tests/](../tests/) | Simulações do protocolo e comportamento; não confirmam a montagem elétrica |
 
-A correspondência dos sete fios originais foi conferida entre tabelas e SVGs;
+A correspondência dos sete fios foi atualizada entre tabelas e SVGs;
 o Mermaid embutido corresponde à imagem exportada. A integração do HC-SR04
 acrescenta GPIO18/19 e as mensagens `INICIAR:1/0`, sem alterar os diagramas
-anteriores nem resolver a divergência I²C. **Não foi realizado teste físico.**
+do conjunto Raspberry–ESP32–OLED. **Não foi realizado teste físico.**
 
 Fontes técnicas adicionais às citadas junto às orientações:
 

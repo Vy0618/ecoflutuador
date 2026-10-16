@@ -27,7 +27,7 @@ void expectPulses(int first, int second) {
 
 int main() {
   setup();
-  assert(!pwmPronto && !armado && !iniciar);
+  assert(!saidaPronta && !armado && !iniciar);
   send("CONFIG:MOTORES:1\n");
   assert(SerialComando.baud == 115200);
 #if ECO_SERIAL_USB
@@ -79,6 +79,11 @@ int main() {
   assert(atual1 < 1300);
   settle();
   expectPulses(1300, 1000);
+  const uint32_t stablePwmCalls = testPwmCalls;
+  testClock += 100;
+  loop();
+  expectPulses(1300, 1000);
+  assert(testPwmCalls == stablePwmCalls);
   send("w\r\n");
   settle();
   expectPulses(1300, 1300);

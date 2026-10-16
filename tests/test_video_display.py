@@ -46,7 +46,8 @@ class VideoDisplayTests(unittest.TestCase):
     def test_mode_argument_errors_happen_before_camera_or_serial(self):
         for flags in (("--output", "motors"), ("--ultrasonic",), ("--no-ultrasonic",),
                       ("--serial-port", "test-port", "--output", "invalid"),
-                      ("--serial-port", "test-port", "--ultrasonic", "--no-ultrasonic")):
+                      ("--serial-port", "test-port", "--ultrasonic", "--no-ultrasonic"),
+                      ("--duration", "nan"), ("--duration", "inf"), ("--duration", "0")):
             with self.subTest(flags=flags), patch.object(sys, "argv", ["object-ident.py", *flags]), \
                  patch.object(recognition, "create_detector") as detector, \
                  patch.object(recognition, "Esp32Link") as link, patch.object(sys, "stderr"):
@@ -59,18 +60,19 @@ class VideoDisplayTests(unittest.TestCase):
     def test_static_image_supports_image_output_and_previous_output_argument(self):
         for flag in ("--image-output", "--output"):
             detector = MagicMock()
-            detector.detect.return_value = []
+            detector.detect.return_value = [Detection("cell phone", .9, (20, 20, 120, 220))]
             with self.subTest(flag=flag), \
                  patch.object(sys, "argv", ["object-ident.py", "--image", "input.jpg", flag, "result.jpg"]), \
                  patch.object(recognition, "create_detector", return_value=detector), \
                  patch.object(recognition, "CommandLog"), \
                  patch.object(recognition.cv2, "imread", return_value=np.zeros((480, 640, 3), dtype=np.uint8)), \
                  patch.object(recognition.cv2, "imwrite", return_value=True) as write, \
-                 patch.object(recognition, "Esp32Link") as link, patch("builtins.print"):
+                 patch.object(recognition, "Esp32Link") as link, patch("builtins.print") as output:
                 self.assertEqual(recognition.main(), 0)
                 self.assertEqual(write.call_args.args[0], "result.jpg")
                 detector.detect.assert_called_once()
                 link.assert_not_called()
+                output.assert_called_once_with("Objetos detectados: 1")
 
     def test_configured_phone_through_detector_navigation_and_oled_serial(self):
         config = recognition.load_config()
@@ -146,6 +148,40 @@ class VideoDisplayTests(unittest.TestCase):
                 self.assertEqual(device.messages, startup_messages(output, True) + [b"s\n"])
                 self.assertTrue(device.closed)
                 camera.close.assert_called_once()
+
+    def test_brief_loss_keeps_command_and_expires_between_inferences(self):
+        config = recognition.load_config()
+        config["detection_interval_ms"] = 300
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        camera = MagicMock()
+        detector = MagicMock()
+        detector.detect.side_effect = [[Detection("bottle", .9, (20, 20, 120, 220))], [], []]
+        device = FakeSerial()
+        instants = iter((0.0, .3, .35, .41, .6, .69, .71))
+        with patch.object(recognition.time, "monotonic", return_value=0.0) as clock:
+            def read():
+                try:
+                    clock.return_value = next(instants)
+                except StopIteration:
+                    raise KeyboardInterrupt
+                return frame
+
+            camera.read.side_effect = read
+            with patch.object(sys, "argv", ["object-ident.py", "--no-display", "--serial-port", "test-port"]), \
+                 patch.object(recognition, "load_config", return_value=config), \
+                 patch.object(recognition, "create_detector", return_value=detector), \
+                 patch.object(recognition, "WebcamConfig"), \
+                 patch.object(recognition, "LatestFrameCamera", return_value=camera), \
+                 patch.object(recognition, "CommandLog") as log, \
+                 patch("serial.Serial", return_value=device):
+                self.assertEqual(recognition.main(), 0)
+        self.assertEqual(detector.detect.call_count, 3)
+        events = [call.kwargs for call in log.return_value.record.call_args_list
+                  if call.kwargs.get("evento") in ("reconhecimento", "permanencia_encerrada")]
+        self.assertEqual([event["comando"] for event in events], ["d", "d", "d", "s"])
+        self.assertEqual(events[1]["estado"], "alvo_temporariamente_perdido")
+        self.assertEqual(events[3]["evento"], "permanencia_encerrada")
+        self.assertEqual(device.messages, startup_messages() + [b"d\n", b"s\n", b"s\n"])
 
     def test_activation_runs_inference_and_expiry_stops_it(self):
         config = recognition.load_config()
@@ -365,6 +401,58 @@ class VideoDisplayTests(unittest.TestCase):
             self.assertEqual(recognition.main(), 1)
         link.close.assert_called_once()
         camera.close.assert_called_once()
+
+    def test_unconfirmed_shutdown_is_reported_as_failure_and_releases_camera(self):
+        camera = MagicMock()
+        camera.read.side_effect = KeyboardInterrupt
+        link = MagicMock()
+        link.close.side_effect = TimeoutError("sem confirmacao de parada")
+        with patch.object(sys, "argv", ["object-ident.py", "--no-display", "--serial-port", "test-port"]), \
+             patch.object(recognition, "create_detector"), \
+             patch.object(recognition, "WebcamConfig"), \
+             patch.object(recognition, "LatestFrameCamera", return_value=camera), \
+             patch.object(recognition, "CommandLog") as log, \
+             patch.object(recognition, "Esp32Link", return_value=link), \
+             patch.object(recognition.sys, "stderr") as stderr:
+            self.assertEqual(recognition.main(), 1)
+        self.assertTrue(stderr.write.called)
+        link.close.assert_called_once()
+        camera.close.assert_called_once()
+        log.return_value.close.assert_called_once()
+
+    def test_cleanup_releases_remaining_resources_when_one_close_fails(self):
+        for failure in ("record", "log", "camera"):
+            camera = MagicMock()
+            camera.read.side_effect = KeyboardInterrupt
+            log = MagicMock()
+            link = MagicMock()
+            if failure == "record":
+                def record(**fields):
+                    if fields.get("evento") == "encerramento":
+                        raise OSError("falha no registro final")
+                log.record.side_effect = record
+            elif failure == "log":
+                log.close.side_effect = OSError("falha ao fechar log")
+            else:
+                camera.close.side_effect = OSError("falha ao fechar camera")
+            gui = {name: MagicMock() for name in (
+                "namedWindow", "resizeWindow", "moveWindow", "waitKey", "destroyAllWindows")}
+            with self.subTest(failure=failure), \
+                 patch.object(sys, "argv", ["object-ident.py", "--serial-port", "test-port"]), \
+                 patch.object(recognition, "create_detector"), \
+                 patch.object(recognition, "WebcamConfig"), \
+                 patch.object(recognition, "LatestFrameCamera", return_value=camera), \
+                 patch.object(recognition, "CommandLog", return_value=log), \
+                 patch.object(recognition, "Esp32Link", return_value=link), \
+                 patch.dict(recognition.os.environ, {"DISPLAY": ":test"}), \
+                 patch.object(recognition.cv2, "getBuildInformation", return_value="GUI: QT5"), \
+                 patch.multiple(recognition.cv2, **gui):
+                with self.assertRaises(OSError):
+                    recognition.main()
+            link.close.assert_called_once()
+            log.close.assert_called_once()
+            camera.close.assert_called_once()
+            gui["destroyAllWindows"].assert_called_once()
 
 
 if __name__ == "__main__":

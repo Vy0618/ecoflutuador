@@ -12,8 +12,10 @@
 #include <Adafruit_SSD1306.h>
 
 // Recebidos por CONFIG:OLED:0/1 ou CONFIG:MOTORES:0/1, antes dos movimentos.
-bool OLED_TEST = true;
-bool USAR_ULTRASSONICO = false;
+bool usarOled = true;
+bool usarUltrassonico = false;
+bool oledPronto = false;
+float distancia = -1.0f;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 #if ECO_SERIAL_USB
@@ -52,7 +54,7 @@ int atual2 = ESC_MIN_US;
 int alvo1 = ESC_MIN_US;
 int alvo2 = ESC_MIN_US;
 char comandoAtual = 's';
-bool pwmPronto = false;
+bool saidaPronta = false;
 bool armado = false;
 uint32_t inicio = 0;
 uint32_t ultimoComando = 0;
@@ -64,13 +66,22 @@ uint32_t pulsoParaDuty(int pulso) {
 }
 
 void mostrarComandoNoOLED(char comando) {
+  if (!oledPronto) return;
   display.clearDisplay();
   display.setTextSize(2);
-  display.setCursor(0, 16);
+  display.setCursor(0, 4);
   display.print("CMD: ");
   display.println(comando);
   display.setTextSize(1);
-  display.setCursor(0, 46);
+  display.setCursor(0, 32);
+  display.print("Dist: ");
+  if (distancia >= 0) {
+    display.print(distancia, 1);
+    display.println(" cm");
+  } else {
+    display.println("sem eco");
+  }
+  display.setCursor(0, 52);
   display.println(comando == 'w' ? "Ambos: avancar" :
                   comando == 'a' ? "Esquerdo: virar dir" :
                   comando == 'd' ? "Direito: virar esq" : "Parado");
@@ -87,16 +98,28 @@ void escreverEscs() {
 #endif
 }
 
+void desativarPWM() {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcDetach(ESC_PIN1);
+  ledcDetach(ESC_PIN2);
+#else
+  ledcDetachPin(ESC_PIN1);
+  ledcDetachPin(ESC_PIN2);
+#endif
+  pinMode(ESC_PIN1, OUTPUT);
+  pinMode(ESC_PIN2, OUTPUT);
+  digitalWrite(ESC_PIN1, LOW);
+  digitalWrite(ESC_PIN2, LOW);
+}
+
 void parar() {
   comandoAtual = 's';
   atual1 = alvo1 = ESC_MIN_US;
   atual2 = alvo2 = ESC_MIN_US;
-  if (!pwmPronto) return;
-  if (OLED_TEST) {
-    mostrarComandoNoOLED(comandoAtual);
-  } else {
+  if (saidaPronta && !usarOled) {
     escreverEscs();
   }
+  mostrarComandoNoOLED(comandoAtual);
 }
 
 int potenciaParaPulso(int potencia) {
@@ -122,12 +145,13 @@ void executarComando(char comando) {
   comandoAtual = comando;
   if (comando == 's') {
     parar();
-  } else if (OLED_TEST) {
-    mostrarComandoNoOLED(comando);
   } else {
-    // a: motor esquerdo; d: motor direito; w: ambos.
-    alvo1 = (comando == 'a' || comando == 'w') ? potenciaParaPulso(POTENCIA_ESC1) : ESC_MIN_US;
-    alvo2 = (comando == 'd' || comando == 'w') ? potenciaParaPulso(POTENCIA_ESC2) : ESC_MIN_US;
+    if (!usarOled) {
+      // a: motor esquerdo; d: motor direito; w: ambos.
+      alvo1 = (comando == 'a' || comando == 'w') ? potenciaParaPulso(POTENCIA_ESC1) : ESC_MIN_US;
+      alvo2 = (comando == 'd' || comando == 'w') ? potenciaParaPulso(POTENCIA_ESC2) : ESC_MIN_US;
+    }
+    mostrarComandoNoOLED(comando);
   }
   SerialComando.print("CMD_OK:");
   SerialComando.println(comando);
@@ -157,7 +181,7 @@ void lerComandos() {
           SerialComando.write("ERROR:CONFIG_EM_MOVIMENTO\n");
         } else {
           configurarSaida(entrada[7] == 'O', entrada[tamanho - 1] == '1');
-          if (pwmPronto) {
+          if (saidaPronta) {
             SerialComando.write("CONFIG_OK:");
             SerialComando.write(entrada + 7);
             SerialComando.write("\n");
@@ -170,7 +194,7 @@ void lerComandos() {
           parar();
           SerialComando.println("CAPS:HEARTBEAT");
           SerialComando.write(iniciar ? "INICIAR:1\n" : "INICIAR:0\n");
-          SerialComando.write(!pwmPronto ? "CONFIG_REQUIRED\n" : armado ? "READY\n" : "ARMING\n");
+          SerialComando.write(!saidaPronta ? "CONFIG_REQUIRED\n" : armado ? "READY\n" : "ARMING\n");
         } else if (entrada[0] == 'h') {
           if (armado) {
             ultimoComando = millis();
@@ -203,50 +227,35 @@ int aproximar(int atual, int alvo) {
 
 void configurarSaida(bool oled, bool ultrassonico) {
   parar();
-  if (pwmPronto && !OLED_TEST) {
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-    ledcDetach(ESC_PIN1);
-    ledcDetach(ESC_PIN2);
-#else
-    ledcDetachPin(ESC_PIN1);
-    ledcDetachPin(ESC_PIN2);
-#endif
-    digitalWrite(ESC_PIN1, LOW);
-    digitalWrite(ESC_PIN2, LOW);
+  if (saidaPronta && !usarOled) {
+    desativarPWM();
   }
-  pwmPronto = false;
+  saidaPronta = false;
   armado = false;
   iniciar = false;
-  OLED_TEST = oled;
-  USAR_ULTRASSONICO = ultrassonico;
-  if (USAR_ULTRASSONICO) {
-    pinMode(trigPin, OUTPUT);
-    pinMode(echoPin, INPUT);
-    digitalWrite(trigPin, LOW);
-  }
-  if (OLED_TEST) {
-    Wire.begin(OLED_SDA, OLED_SCL);
-    pwmPronto = display.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, false);
-    if (!pwmPronto) {
+  usarOled = oled;
+  usarUltrassonico = ultrassonico;
+  if (usarOled) {
+    saidaPronta = oledPronto;
+    if (!saidaPronta) {
       SerialComando.println("ERROR:OLED");
       return;
     }
-    display.setTextColor(SSD1306_WHITE);
-    display.setTextWrap(false);
   } else {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
     bool primeiro = ledcAttach(ESC_PIN1, PWM_HZ, PWM_BITS);
     bool segundo = ledcAttach(ESC_PIN2, PWM_HZ, PWM_BITS);
-    pwmPronto = primeiro && segundo;
+    saidaPronta = primeiro && segundo;
 #else
     double primeiro = ledcSetup(0, PWM_HZ, PWM_BITS);
     double segundo = ledcSetup(1, PWM_HZ, PWM_BITS);
     ledcAttachPin(ESC_PIN1, 0);
     ledcAttachPin(ESC_PIN2, 1);
-    pwmPronto = primeiro > 0 && segundo > 0;
+    saidaPronta = primeiro > 0 && segundo > 0;
 #endif
   }
-  if (!pwmPronto) {
+  if (!saidaPronta) {
+    desativarPWM();
     SerialComando.println("ERROR:PWM");
     return;
   }
@@ -255,7 +264,7 @@ void configurarSaida(bool oled, bool ultrassonico) {
   ultimaRampa = inicio;
   ultimaLeitura = inicio;
   inicioTimer = 0;
-  iniciar = !USAR_ULTRASSONICO;
+  iniciar = !usarUltrassonico;
 }
 
 void setup() {
@@ -263,22 +272,28 @@ void setup() {
 #if !ECO_SERIAL_USB
   SerialComando.begin(SERIAL_BAUD, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
 #endif
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  digitalWrite(trigPin, LOW);
+  Wire.begin(OLED_SDA, OLED_SCL);
+  oledPronto = display.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, false);
+  if (oledPronto) {
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextWrap(false);
+    mostrarComandoNoOLED(comandoAtual);
+  }
   SerialComando.write("CONFIG_REQUIRED\n");
 }
 
 void loop() {
-  if (!pwmPronto) {
-    lerComandos();
-    delay(1);
-    return;
-  }
   uint32_t agora = millis();
-  if (!armado && agora - inicio >= ARMAR_MS) {
+  if (saidaPronta && !armado && agora - inicio >= ARMAR_MS) {
     armado = true;
     ultimoComando = agora;
     SerialComando.println("READY");
   }
-  if (USAR_ULTRASSONICO && agora - ultimaLeitura >= 100) {
+  // Mede em todos os modos; usarUltrassonico controla somente a ativacao.
+  if (agora - ultimaLeitura >= 100) {
     ultimaLeitura = agora;
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
@@ -286,14 +301,15 @@ void loop() {
     delayMicroseconds(10);
     digitalWrite(trigPin, LOW);
     unsigned long duracao = pulseIn(echoPin, HIGH, 30000UL);
-    float distancia = duracao * 0.0343f / 2.0f;
-    if (!iniciar && duracao > 0 && distancia < 15.0f) {
+    distancia = duracao > 0 ? duracao * 0.0343f / 2.0f : -1.0f;
+    mostrarComandoNoOLED(comandoAtual);
+    if (usarUltrassonico && saidaPronta && !iniciar && duracao > 0 && distancia < 15.0f) {
       iniciar = true;
       inicioTimer = millis();
       SerialComando.write("INICIAR:1\n");
     }
   }
-  if (USAR_ULTRASSONICO && iniciar && millis() - inicioTimer >= tempoAtivacao) {
+  if (usarUltrassonico && iniciar && millis() - inicioTimer >= tempoAtivacao) {
     iniciar = false;
     parar();
     SerialComando.write("INICIAR:0\n");
@@ -304,7 +320,8 @@ void loop() {
     parar();
     SerialComando.println("TIMEOUT:s");
   }
-  if (!OLED_TEST && armado && agora - ultimaRampa >= RAMPA_INTERVALO_MS) {
+  if (!usarOled && armado && (atual1 != alvo1 || atual2 != alvo2) &&
+      agora - ultimaRampa >= RAMPA_INTERVALO_MS) {
     ultimaRampa = agora;
     atual1 = aproximar(atual1, alvo1);
     atual2 = aproximar(atual2, alvo2);

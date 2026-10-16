@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1140" viewBox="0 0 1600 1140" role="img" aria-labelledby="title desc">
   <title id="title">EcoFlutuador — conexões físicas informadas entre Raspberry Pi, ESP32 e OLED</title>
-  <desc id="desc">Raspberry GPIO14, pino físico 8, liga a RX2 GPIO16 da ESP32; GPIO15, pino físico 10, recebe de TX2 GPIO17. GND é compartilhado; o pino físico GND escolhido na Raspberry está pendente de confirmação. A montagem OLED informada liga GPIO21 a SCL, GPIO22 a SDA, 3V3 a VCC e GND a GND. Atenção: o firmware atual configura SDA21 e SCL22, invertidos em relação a esta montagem. Os desenhos dos conectores são funcionais, sem representar sua posição física real.</desc>
+  <desc id="desc">Raspberry GPIO14, pino físico 8, liga a RX2 GPIO16 da ESP32; GPIO15, pino físico 10, recebe de TX2 GPIO17. GND é compartilhado; o pino físico GND escolhido na Raspberry está pendente de confirmação. O OLED liga GPIO22 a SCL, GPIO23 a SDA, 3V3 a VCC e GND a GND, conforme a pinagem confirmada e o firmware. Os desenhos dos conectores são funcionais, sem representar sua posição física real.</desc>
   <defs>
     <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e8edf3" stroke-width="1"/></pattern>
     <marker id="uart-tx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#0284c7"/></marker>
@@ -15,7 +15,6 @@
     .small { font-size: 16px; }
     .medium { font-size: 19px; }
     .wire-label { font-size: 18px; font-weight: 700; }
-    .warning { fill: #78350f; font-size: 20px; }
     .wire { fill: none; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
     .contact { fill: #f3c969; stroke: #74561a; stroke-width: 2; }
   </style>
@@ -23,9 +22,9 @@
   <rect x="24" y="208" width="1552" height="551" rx="16" fill="url(#grid)"/>
   <text x="48" y="55" class="title">EcoFlutuador · montagem física informada</text>
   <text x="48" y="84" class="medium">UART cruzada entre as placas · OLED alimentado pela saída 3V3 da ESP32</text>
-  <rect x="40" y="105" width="1520" height="87" rx="12" fill="#fff1df" stroke="#b45309" stroke-width="2"/>
-  <text x="60" y="135" class="warning" font-weight="700">DIVERGÊNCIA I²C: esta montagem usa GPIO21 → SCL e GPIO22 → SDA.</text>
-  <text x="60" y="166" class="warning">O firmware atual usa Wire.begin(21, 22): SDA21 / SCL22. É preciso alinhar código e ligação antes de validar a tela.</text>
+  <rect x="40" y="105" width="1520" height="87" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="60" y="135" class="pin">OLED I²C: GPIO22 → SCL · GPIO23 ↔ SDA</text>
+  <text x="60" y="166" class="medium">Wire.begin(23, 22) · SDA23 / SCL22 · endereço 0x3C no firmware</text>
 
   <!-- Representações funcionais: os terminais não reproduzem a ordem física dos conectores. -->
   <g id="raspberry-pi">
@@ -58,12 +57,12 @@
     <text x="645" y="311" class="board-sub">Placa e ordem dos pinos: a confirmar</text>
     <rect x="636" y="343" width="324" height="66" rx="8" fill="#edf4f7"/>
     <text x="649" y="375" class="pin">RX2</text><text x="649" y="397" class="small">GPIO16</text>
-    <text x="947" y="375" text-anchor="end" class="pin">D21 · GPIO21</text>
-    <text x="947" y="397" text-anchor="end" class="small">→ SCL informado</text>
+    <text x="947" y="375" text-anchor="end" class="pin">D22 · GPIO22</text>
+    <text x="947" y="397" text-anchor="end" class="small">→ SCL</text>
     <rect x="636" y="416" width="324" height="66" rx="8" fill="#edf4f7"/>
     <text x="649" y="448" class="pin">TX2</text><text x="649" y="470" class="small">GPIO17</text>
-    <text x="947" y="448" text-anchor="end" class="pin">D22 · GPIO22</text>
-    <text x="947" y="470" text-anchor="end" class="small">↔ SDA informado</text>
+    <text x="947" y="448" text-anchor="end" class="pin">D23 · GPIO23</text>
+    <text x="947" y="470" text-anchor="end" class="small">↔ SDA</text>
     <rect x="636" y="506" width="324" height="58" rx="8" fill="#edf4f7"/>
     <text x="650" y="541" class="pin">GND</text>
     <path d="M 708 535 H 887" stroke="#334155" stroke-width="3" stroke-dasharray="6 4"/>
@@ -88,9 +87,9 @@
     <text x="1241" y="618" class="pin">VCC</text>
     <rect x="1335" y="350" width="197" height="176" rx="10" fill="#090f18" stroke="#5e7b96" stroke-width="3"/>
     <text x="1351" y="390" fill="#86efac" style="fill:#86efac; font-size:19px">CMD: w</text>
-    <text x="1351" y="420" style="fill:#a1c4e0; font-size:16px">Exemplo ilustrativo</text>
-    <text x="1351" y="449" style="fill:#a1c4e0; font-size:16px">da tela após</text>
-    <text x="1351" y="475" style="fill:#a1c4e0; font-size:16px">alinhar o I²C</text>
+    <text x="1351" y="420" style="fill:#a1c4e0; font-size:16px">Dist: 12.0 cm</text>
+    <text x="1351" y="449" style="fill:#a1c4e0; font-size:16px">Ambos: avancar</text>
+    <text x="1351" y="475" style="fill:#a1c4e0; font-size:16px">Exemplo de leitura</text>
     <text x="1335" y="566" class="board-sub">0x3C no firmware;</text>
     <text x="1335" y="591" class="board-sub">endereço real:</text>
     <text x="1335" y="616" class="board-sub">a confirmar</text>
@@ -103,8 +102,8 @@
     <path id="pi-tx-to-esp-rx" class="wire" d="M 415 375 H 616" stroke="#0284c7" marker-end="url(#uart-tx)" data-source-component="Raspberry Pi" data-source-pin="GPIO14" data-target-component="ESP32" data-target-pin="GPIO16" data-signal="UART_TX"/>
     <path id="esp-tx-to-pi-rx" class="wire" d="M 620 445 H 419" stroke="#16803c" marker-end="url(#uart-rx)" data-source-component="ESP32" data-source-pin="GPIO17" data-target-component="Raspberry Pi" data-target-pin="GPIO15" data-signal="UART_RX"/>
     <path id="pi-gnd-to-esp-gnd" class="wire" d="M 415 535 H 620" stroke="#334155" data-source-component="Raspberry Pi" data-source-pin="GND" data-target-component="ESP32" data-target-pin="GND" data-signal="GND"/>
-    <path id="esp-scl-to-oled-scl" class="wire" d="M 975 375 H 1210" stroke="#d97706" data-source-component="ESP32" data-source-pin="GPIO21" data-target-component="OLED" data-target-pin="SCL" data-signal="I2C_SCL"/>
-    <path id="esp-sda-to-oled-sda" class="wire" d="M 975 445 H 1210" stroke="#7c3aed" data-source-component="ESP32" data-source-pin="GPIO22" data-target-component="OLED" data-target-pin="SDA" data-signal="I2C_SDA"/>
+    <path id="esp-scl-to-oled-scl" class="wire" d="M 975 375 H 1210" stroke="#d97706" data-source-component="ESP32" data-source-pin="GPIO22" data-target-component="OLED" data-target-pin="SCL" data-signal="I2C_SCL"/>
+    <path id="esp-sda-to-oled-sda" class="wire" d="M 975 445 H 1210" stroke="#7c3aed" data-source-component="ESP32" data-source-pin="GPIO23" data-target-component="OLED" data-target-pin="SDA" data-signal="I2C_SDA"/>
     <path id="esp-gnd-to-oled-gnd" class="wire" d="M 975 535 H 1210" stroke="#334155" data-source-component="ESP32" data-source-pin="GND" data-target-component="OLED" data-target-pin="GND" data-signal="GND"/>
     <path id="esp-3v3-to-oled-vcc" class="wire" d="M 975 610 H 1210" stroke="#dc2626" data-source-component="ESP32" data-source-pin="3V3" data-target-component="OLED" data-target-pin="VCC" data-signal="3V3"/>
   </g>
@@ -137,5 +136,5 @@
   <text x="48" y="1000" class="medium">Diagrama funcional, sem escala. Identifique cada terminal pela serigrafia; não copie sua posição no desenho.</text>
   <text x="48" y="1032" class="medium">A posição do GND na Pi e a ordem dos conectores da ESP32 e do OLED estão pendentes de confirmação.</text>
   <text x="48" y="1064" class="medium">Não foi informada ligação de alimentação entre Pi e ESP32. Câmera USB e ESCs não integram estes sete jumpers.</text>
-  <text x="48" y="1101" class="small">Referência: montagem fornecida pelo usuário e auditoria do firmware · 13/10/2026 · consulte docs/HARDWARE.md</text>
+  <text x="48" y="1101" class="small">Pinagem OLED confirmada: 16/10/2026 · SCL22 / SDA23 · consulte docs/HARDWARE.md</text>
 </svg>

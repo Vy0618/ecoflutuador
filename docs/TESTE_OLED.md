@@ -19,7 +19,7 @@ de vídeo do computador, sem desligar o OLED.
 A ESP32 inicia com `CONFIG_REQUIRED`. O Python solicita parada, envia
 `CONFIG:OLED:0`, confere `CONFIG_OK:OLED:0`, aguarda `READY` e confirma outra
 parada antes do reconhecimento. Sem sensor, recebe `INICIAR:1`; com sensor, aguarda
-o disparo. A tela pode ficar apagada até receber a configuração.
+o disparo. A tela já mostra comando e distância ao ligar, antes da configuração.
 
 ## Ligação
 
@@ -33,8 +33,9 @@ OLED SSD1306 de 128×64, endereço I2C `0x3C`:
 | VCC | 3,3 V, com módulo compatível com essa alimentação |
 
 A ligação UART com a Raspberry está no [guia físico](TESTE_FISICO_RPI5.md).
-O HC-SR04 não precisa estar conectado neste teste. Se habilitado, usa TRIG18 e
-ECHO19, com adaptação do ECHO de 5 V para 3,3 V.
+O HC-SR04 não precisa estar conectado no teste contínuo: nesse caso aparece
+`Dist: sem eco`. Quando conectado, a medição usa TRIG18 e ECHO19 em todos os
+modos, com adaptação do ECHO de 5 V para 3,3 V.
 Confira a alimentação e as ligações no [guia de hardware](HARDWARE.md#hc-sr04-ligações-previstas).
 
 ## Gravação e execução
@@ -86,6 +87,19 @@ atual) e apresente-o novamente. Sem alvo válido, `s` é o comportamento esperad
 
 ## O que aparece na tela
 
+A mensagem padrão aparece nos modos `oled` e `motors`:
+
+```text
+CMD: w
+Dist: 12.0 cm
+Ambos: avancar
+```
+
+A distância é atualizada a cada leitura, mesmo sem trocar o comando.
+Sem eco válido, aparece `Dist: sem eco`. O sensor é lido também com
+`--no-ultrasonic`; a opção dispensa somente sua função de liberar a operação.
+O teste continua funcionando sem o sensor conectado, mostrando `sem eco`.
+
 | Comando | Interpretação |
 |---|---|
 | `w` | Ambos: avançar |
@@ -102,7 +116,7 @@ As confirmações e a parada por timeout de três segundos continuam funcionando
 Heartbeats mantêm o comando exibido; quando o sensor está habilitado, não
 prolongam a janela de 30 segundos.
 
-A tela atualiza ao receber um comando de movimento ou de parada, incluindo a
-parada pelo watchdog. O modo OLED não executa a rampa dos motores. A tela mostra
+A tela atualiza ao medir a distância e ao receber um comando de movimento ou de
+parada, incluindo a parada pelo watchdog. O modo OLED não executa a rampa dos motores. A tela mostra
 o estado interpretado pela ESP32. A implementação foi validada por testes e
 compilação; a tela física ainda precisa ser conferida.

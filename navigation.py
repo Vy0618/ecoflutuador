@@ -1,11 +1,14 @@
 """Acompanhamento de um alvo e decisao de aproximacao e parada."""
 from dataclasses import dataclass
+import time
 
 from detection.types import Detection
 from regions import match_target, regions_for_frame, target_order, valid_targets
 
 
 COMMANDS = {"esquerda": "d", "baixo": "s", "meio": "w", "direita": "a"}
+# Milissegundos desde a primeira perda do alvo; 0 desativa a permanencia.
+COMMAND_HOLD_MS = 1000
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ class Navigation:
         self.missing_frames = 0
         self.horizontal_region = None
         self.approach_complete = False
+        self.loss_started_at = None
 
     def _result(self, region, command, selected, state):
         result = NavigationResult(region, command, selected, command != self.previous_command,
@@ -75,14 +79,22 @@ class Navigation:
             state = "alvo_perdido" if self.target is not None else "sem_alvo"
             if self.target is not None:
                 self.missing_frames += 1
+                if self.previous_command in ("a", "w", "d"):
+                    if self.loss_started_at is None:
+                        self.loss_started_at = time.monotonic()
+                    if (time.monotonic() - self.loss_started_at) * 1000 < COMMAND_HOLD_MS:
+                        return self._result(self.horizontal_region, self.previous_command, None,
+                                            "alvo_temporariamente_perdido")
                 if self.missing_frames >= self.target_missing_frames:
                     self.target = None
                     self.missing_frames = 0
                     self.approach_complete = False
                     self.horizontal_region = None
+                    self.loss_started_at = None
             return self._result(None, "s", None, state)
 
         self.target = selected
+        self.loss_started_at = None
         self.missing_frames = 0
         region = "baixo" if selected.centroid[1] >= regions.line_y else self._horizontal(selected.centroid[0], regions)
         if region == "baixo":
@@ -92,6 +104,7 @@ class Navigation:
         return self._result(region, COMMANDS[region], selected, "aproximando")
 
     def stop(self):
+        self.loss_started_at = None
         return self._result(None, "s", None, "parado")
 
 

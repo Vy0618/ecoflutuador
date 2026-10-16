@@ -12,12 +12,14 @@ def load_config(path=CONFIG_FILE):
     config = json.loads(path.read_text(encoding="utf-8-sig"))
     camera = config["camera"]
     model = config["ssd_mobilenet"]
+    processing = config["image_processing"]
     for key in ("model_path", "config_path", "labels_path"):
         model[key] = str((path.parent / model[key]).resolve())
         if not Path(model[key]).is_file():
             raise FileNotFoundError(f"Arquivo SSD MobileNet ausente: {model[key]}")
     for section, keys in ((camera, ("width", "height", "fps")),
-                          (model, ("input_width", "input_height"))):
+                          (model, ("input_width", "input_height")),
+                          (processing, ("max_width", "max_height"))):
         for key in keys:
             if type(section[key]) is not int or section[key] <= 0:
                 raise ValueError(f"{key} deve ser um inteiro positivo")
@@ -32,15 +34,11 @@ def load_config(path=CONFIG_FILE):
     targets = model["detection_types"]
     if not isinstance(targets, list) or any(not isinstance(name, str) for name in targets):
         raise ValueError("detection_types deve ser uma lista de classes")
-    processing = config["image_processing"]
     ratio = config["display"].setdefault("bottom_zone_ratio", 0.8)
     if type(ratio) not in (int, float) or not 0 < ratio < 1:
         raise ValueError("display.bottom_zone_ratio deve estar entre 0 e 1, sem incluir os extremos")
     if type(processing["enabled"]) is not bool:
         raise ValueError("image_processing.enabled deve ser booleano")
-    for key in ("max_width", "max_height"):
-        if type(processing[key]) is not int or processing[key] <= 0:
-            raise ValueError(f"image_processing.{key} deve ser positivo")
     navigation = config.setdefault("navigation", {})
     if not isinstance(navigation, dict):
         raise ValueError("navigation deve ser um objeto")

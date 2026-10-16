@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Reconhecimento local de garrafas com SSD MobileNet V3."""
+"""Reconhecimento de objetos e navegacao do EcoFlutuador com SSD MobileNet V3."""
 import argparse
+import math
 import os
 from pathlib import Path
 import sys
@@ -14,11 +15,11 @@ from detection.ssd_mobilenet_detector import SsdMobileNetDetector
 from image_processing import prepare_frame, restore_coordinates
 from regions import regions_for_frame
 from command_log import CommandLog
-from navigation import COMMANDS, Navigation, record_navigation
+from navigation import COMMANDS, COMMAND_HOLD_MS, Navigation, record_navigation
 from esp32_link import Esp32Link
 
 
-WINDOW = "V4.1 - SSD MobileNet V3 - Garrafas"
+WINDOW = "EcoFlutuador - SSD MobileNet V3"
 
 
 def create_detector(config):
@@ -41,16 +42,16 @@ def annotate(frame, detections, bottom_zone_ratio=0.8, navigation=None):
     height, width = image.shape[:2]
     regions = regions_for_frame(width, height, bottom_zone_ratio)
     line_y = regions.line_y
-    zone_width = regions.first_x
+    first_x, second_x = regions.first_x, regions.second_x
     color = (0, 230, 255)
     cv2.line(image, (0, line_y), (width - 1, line_y), color, 2)
-    for x in (zone_width, 2 * zone_width):
+    for x in (first_x, second_x):
         cv2.line(image, (x, 0), (x, line_y), color, 2)
     scale = .6 * min(1, width / 640)
     for label, center_x, text_y in (
-        (f"ESQUERDA [{COMMANDS['esquerda']}]", zone_width // 2, 25),
-        (f"MEIO [{COMMANDS['meio']}]", zone_width + zone_width // 2, 25),
-        (f"DIREITA [{COMMANDS['direita']}]", (2 * zone_width + width) // 2, 25),
+        (f"ESQUERDA [{COMMANDS['esquerda']}]", first_x // 2, 25),
+        (f"MEIO [{COMMANDS['meio']}]", (first_x + second_x) // 2, 25),
+        (f"DIREITA [{COMMANDS['direita']}]", (second_x + width) // 2, 25),
         (f"BAIXO [{COMMANDS['baixo']}]", width // 2, line_y + (height - line_y) // 2),
     ):
         text_width = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, 1)[0][0]
@@ -90,7 +91,7 @@ def main():
     sensor.add_argument("--ultrasonic", dest="ultrasonic", action="store_true", default=None,
                         help="Exige ativacao pelo HC-SR04 (padrao com motors)")
     sensor.add_argument("--no-ultrasonic", dest="ultrasonic", action="store_false",
-                        help="Opera continuamente, sem sensor (padrao com oled)")
+                        help="Opera continuamente, sem exigir disparo do sensor (padrao com oled)")
     parser.add_argument("--duration", type=float, help="Encerra apos N segundos")
     parser.add_argument("--image", type=Path, help="Reconhece imagem sem abrir webcam")
     parser.add_argument("--image-output", type=Path, help="Caminho da imagem anotada; exige --image")
@@ -119,8 +120,8 @@ def main():
         parser.error("--serial-port exige reconhecimento pela webcam")
     if not args.serial_port and (args.ultrasonic is not None or (args.output and not args.image)):
         parser.error("Os argumentos de modo exigem --serial-port")
-    if args.duration is not None and args.duration <= 0:
-        parser.error("--duration deve ser positivo")
+    if args.duration is not None and (not math.isfinite(args.duration) or args.duration <= 0):
+        parser.error("--duration deve ser positivo e finito")
     if args.camera_index is not None and args.camera_index < 0:
         parser.error("--camera-index deve ser nao negativo")
     camera = None
@@ -128,13 +129,15 @@ def main():
     log = None
     navigation = None
     motor_link = None
+    exit_code = 0
     mode = "serial" if args.serial_port else "terminal"
     try:
         config = load_config(args.config)
         detector = create_detector(config)
-        navigation = Navigation(config["display"]["bottom_zone_ratio"],
-                                allowed_classes=config["ssd_mobilenet"]["detection_types"],
-                                **config["navigation"])
+        bottom_zone_ratio = config["display"]["bottom_zone_ratio"]
+        navigation_settings = {**config["navigation"], "bottom_zone_ratio": bottom_zone_ratio,
+                               "allowed_classes": config["ssd_mobilenet"]["detection_types"]}
+        navigation = Navigation(**navigation_settings)
         log = CommandLog(args.log_file)
         if args.image:
             frame = cv2.imread(str(args.image))
@@ -143,9 +146,9 @@ def main():
             detections = detect_frame(detector, frame, config)
             result = navigation.update(detections, frame.shape[1], frame.shape[0])
             record_navigation(log, result, detections)
-            if not cv2.imwrite(str(image_output), annotate(frame, detections, config["display"]["bottom_zone_ratio"], result)):
+            if not cv2.imwrite(str(image_output), annotate(frame, detections, bottom_zone_ratio, result)):
                 raise OSError(f"Nao foi possivel salvar {image_output}")
-            print(f"Garrafas detectadas: {len(detections)}")
+            print(f"Objetos detectados: {len(detections)}")
             return 0
         show = args.display
         if show:
@@ -187,9 +190,7 @@ def main():
             if motor_link:
                 motor_link.poll()
                 if motor_link.activation_changed:
-                    navigation = Navigation(config["display"]["bottom_zone_ratio"],
-                                            allowed_classes=config["ssd_mobilenet"]["detection_types"],
-                                            **config["navigation"])
+                    navigation = Navigation(**navigation_settings)
                     detections = []
                     result = navigation.stop()
                     next_detection = 0
@@ -216,36 +217,50 @@ def main():
                     result = navigation.stop()
                 next_detection = now + interval
                 last_shape = frame.shape
+            # Expira entre inferencias, sem esperar a proxima execucao do SSD.
+            if (result is not None and result.state == "alvo_temporariamente_perdido"
+                    and (time.monotonic() - navigation.loss_started_at) * 1000 >= COMMAND_HOLD_MS):
+                result = navigation.stop()
+                if motor_link:
+                    motor_link.send("s")
+                record_navigation(log, result, [], event="permanencia_encerrada", mode=mode)
             if show:
-                cv2.imshow(WINDOW, annotate(frame, detections, config["display"]["bottom_zone_ratio"], result))
+                cv2.imshow(WINDOW, annotate(frame, detections, bottom_zone_ratio, result))
                 if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
                     break
                 if cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:
                     break
-        return 0
     except KeyboardInterrupt:
-        return 0
+        pass
     except Exception as exc:
+        exit_code = 1
         if log:
             log.record(evento="erro", mensagem=str(exc), comando="s", modo=mode)
         print(f"Falha no reconhecimento: {exc}", file=sys.stderr)
-        return 1
     finally:
-        if motor_link:
+        try:
+            if motor_link:
+                try:
+                    motor_link.close()
+                except Exception as exc:
+                    exit_code = 1
+                    if log:
+                        log.record(evento="erro", mensagem=str(exc), comando="s", modo=mode)
+                    print(f"Falha ao confirmar parada do ESP32: {exc}", file=sys.stderr)
+            if log:
+                try:
+                    if navigation:
+                        record_navigation(log, navigation.stop(), [], event="encerramento", mode=mode)
+                finally:
+                    log.close()
+        finally:
             try:
-                motor_link.close()
-            except Exception as exc:
-                if log:
-                    log.record(evento="erro", mensagem=str(exc), comando="s", modo=mode)
-                print(f"Falha ao confirmar parada do ESP32: {exc}", file=sys.stderr)
-        if log:
-            if navigation:
-                record_navigation(log, navigation.stop(), [], event="encerramento", mode=mode)
-            log.close()
-        if camera:
-            camera.close()
-        if window_created:
-            cv2.destroyAllWindows()
+                if camera:
+                    camera.close()
+            finally:
+                if window_created:
+                    cv2.destroyAllWindows()
+    return exit_code
 
 
 if __name__ == "__main__":

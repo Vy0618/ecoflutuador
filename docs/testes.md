@@ -104,6 +104,10 @@ ambiente local; ao criar um novo venv em outra máquina, prepare o PlatformIO ne
 
 A saída e o sensor são escolhidos ao iniciar o Python:
 
+Os quatro exemplos abaixo usam **cabo USB**, porta `/dev/ttyUSB0` e perfil
+`esp32-usb`. Na Raspberry ligada por fios RX2/TX2, use `/dev/ttyAMA0` e grave
+o perfil `esp32`. Os argumentos de saída e ativação são iguais nos dois canais.
+
 ### OLED sem sensor — padrão
 
 Executa o reconhecimento continuamente e mostra os comandos no OLED, sem
@@ -128,7 +132,7 @@ Usa os motores para a navegação, com ativação pelo HC-SR04 e janela de
 30 segundos. Esse é o padrão ao selecionar `--output motors`.
 
 ```bash
-.venv/bin/python object-ident.py --serial-port /dev/ttyAMA0 --output motors
+.venv/bin/python object-ident.py --serial-port /dev/ttyUSB0 --output motors
 ```
 
 ### Motores sem ultrassônico
@@ -137,7 +141,7 @@ Executa o reconhecimento e envia os comandos aos motores continuamente,
 sem aguardar o sensor e sem o limite de 30 segundos.
 
 ```bash
-.venv/bin/python object-ident.py --serial-port /dev/ttyAMA0 --output motors --no-ultrasonic
+.venv/bin/python object-ident.py --serial-port /dev/ttyUSB0 --output motors --no-ultrasonic
 ```
 
 As portas são exemplos: use a porta correspondente à ligação e ao perfil
@@ -149,11 +153,15 @@ comunicação continuam funcionando em todos os modos.
 | `--output oled` | Exibe os comandos no OLED; nenhum PWM é gerado |
 | `--output motors` | Controla os ESCs e motores |
 | `--ultrasonic` | Exige o disparo do sensor e limita a janela a 30 s |
-| `--no-ultrasonic` | Reconhecimento contínuo, sem sensor |
+| `--no-ultrasonic` | Reconhecimento contínuo, sem exigir disparo do sensor |
 
 **Grave esta versão do firmware uma vez.** Depois, a mudança entre esses modos
 é enviada pela UART, sem editar variáveis ou regravar a cada teste. O padrão
-com serial é OLED sem sensor; os argumentos de modo exigem `--serial-port`.
+com serial é OLED sem exigir disparo do sensor; os argumentos de modo exigem `--serial-port`.
+O display mostra `CMD: <letra>` e `Dist: <valor> cm` tanto em `oled` quanto em
+`motors`, desde a inicialização. A medição continua a cada 100 ms com
+`--no-ultrasonic`: a opção dispensa apenas a ativação por proximidade.
+Sem leitura válida ou com o sensor desconectado, a tela mostra `Dist: sem eco`.
 `--no-display` controla apenas o vídeo no computador. O teste visual usa
 OLED SSD1306 de endereço I²C `0x3C`.
 
@@ -189,7 +197,7 @@ A saída OLED/motores e o canal de comunicação são escolhas independentes:
 
 | Cenário | Perfil PlatformIO | Canal de comandos |
 |---|---|---|
-| Computador com cabo USB conectado à ESP32 | `esp32-usb` | UART0 pelo conversor USB da placa |
+| Computador ou Raspberry com cabo USB conectado à ESP32 | `esp32-usb` | UART0 pelo conversor USB da placa |
 | Raspberry com fios nos GPIOs | `esp32` | UART2 da ESP32: RX2 (GPIO 16), TX2 (GPIO 17) |
 
 Com PlatformIO, mantenha o valor padrão `ECO_SERIAL_USB=0` no sketch; o perfil
@@ -239,8 +247,7 @@ com as anotações. Encerre o vídeo com `q`, `Esc`, fechando a janela ou `Ctrl+
 ### 1. Preparar e gravar a ESP32
 
 Conecte o OLED ou os ESCs conforme a tabela de saída e escolha `--output oled`
-ou `--output motors` no comando Python:
-`true` para a tela, `false` para os motores. Conecte a ESP32 ao computador com
+ou `--output motors` no comando Python. Conecte a ESP32 ao computador com
 um cabo USB de dados. Liste as portas:
 
 ```bash
@@ -269,7 +276,7 @@ computador e execute:
 O programa consulta a placa, solicita parada, envia `CONFIG:OLED:0` por padrão,
 exige `CONFIG_OK:OLED:0`, espera `READY` e confirma outra parada. A preparação
 da saída leva cerca de três segundos. No OLED padrão, a ESP32 informa
-`INICIAR:1` e libera o reconhecimento continuamente, sem sensor e sem limite
+`INICIAR:1` e libera o reconhecimento continuamente, sem exigir disparo e sem limite
 de 30 s. Isso vale para USB e UART2; é preciso gravar o firmware atualizado.
 Com `--ultrasonic`, só recebe essa liberação após o disparo.
 A câmera continua aberta e a janela mostra as linhas e a parada enquanto
@@ -430,6 +437,11 @@ finally:
 PY
 ```
 
+Esse exemplo configura **OLED sem exigir disparo do sensor**. Para confirmar
+também a preparação dos ESCs, use `Esp32Link('/dev/ttyAMA0', output='motors')`;
+a consulta continua sem solicitar movimento. O programa de reconhecimento
+reaplica o modo escolhido em seus argumentos ao iniciar.
+
 Depois execute com vídeo:
 
 ```bash
@@ -472,6 +484,20 @@ Edite [config.json](../config.json) e reinicie o programa para aplicar as mudan�
 | `navigation.target_max_distance_px` | `90` | Distância máxima para associação por centro |
 | `navigation.target_min_iou` | `0.1` | Sobreposição mínima para associação |
 | `navigation.target_missing_frames` | `3` | Inferências ausentes para liberar o alvo |
+
+Para ajustar a permanência do comando durante uma perda breve, edite a constante
+em [navigation.py](../navigation.py) e reinicie o Python:
+
+```python
+COMMAND_HOLD_MS = 1000
+```
+
+O valor é em milissegundos desde a primeira inferência sem o alvo; `0` desativa a
+permanência. Ausências consecutivas não renovam o prazo. Reencontrar o alvo
+zera a contagem para uma perda futura. A faixa inferior, falhas e
+o encerramento da janela ultrassônica continuam provocando parada imediata.
+O JSONL marca a perda breve como `alvo_temporariamente_perdido` e registra
+`permanencia_encerrada` quando o prazo vence entre inferências.
 
 FPS e inferência são controles separados: o perfil entrega até 30 frames por
 segundo e permite aproximadamente 3,3 inferências por segundo, conforme o tempo
@@ -543,9 +569,9 @@ O monitor serial da Arduino IDE também pode ser usado com **115200 baud** e
 | Mensagem | Função |
 |---|---|
 | `?` | Consulta prontidão e `INICIAR:0/1`; aplica parada |
-| `CONFIG_REQUIRED` | Placa aguardando configuração, sem saída inicializada |
-| `CONFIG:OLED:0/1` | Configura OLED sem/com sensor |
-| `CONFIG:MOTORES:0/1` | Configura motores sem/com sensor |
+| `CONFIG_REQUIRED` | Aguarda configuração do modo; OLED e medição já iniciados, sem PWM |
+| `CONFIG:OLED:0` / `CONFIG:OLED:1` | Teste OLED sem/com ativação por proximidade |
+| `CONFIG:MOTORES:0` / `CONFIG:MOTORES:1` | Motores sem/com ativação por proximidade |
 | `CONFIG_OK:<saida>:<sensor>` | Confirmação exata do modo aplicado; depois aguarde `READY` |
 | `ARMING` / `READY` | Inicialização em andamento / firmware pronto |
 | `a`, `w`, `d`, `s` | Movimentos e parada |
@@ -561,8 +587,9 @@ para o movimento. `s` e `h` continuam aceitos quando a placa está pronta;
 `h` não libera movimentos. Firmware antigo sem suporte a `CONFIG` é rejeitado
 pelo Python; grave a versão atual antes de usar os novos argumentos.
 
-Quando habilitado, o HC-SR04 é lido a cada 100 ms, com `pulseIn` limitado a 30 ms. Uma distância
-válida abaixo de 15 cm libera a janela. A ESP32 encerra os movimentos
+O HC-SR04 é lido em todos os modos a cada 100 ms, com `pulseIn` limitado a 30 ms.
+Quando a ativação por proximidade está habilitada, uma distância válida abaixo
+de 15 cm libera a janela. A ESP32 encerra os movimentos
 localmente após 30 s; `h` não prolonga essa autorização. `INICIAR:1/0` são
 mensagens enviadas pela ESP32, não comandos manuais para forçar a liberação.
 
@@ -606,7 +633,7 @@ a configuração JSON ajusta o reconhecimento.
 | Câmera não abre | Conexão USB, permissões e `camera.device_index` / `--camera-index` |
 | ESP32 não confirma `READY` | Porta correta, perfil USB/UART2, RX/TX cruzados e GND comum |
 | Acesso negado à serial | Grupo da porta e outro programa usando o dispositivo |
-| OLED não mostra texto | `--output oled`, confirmação `CONFIG_OK`, alimentação, SDA=23, SCL=22 e endereço `0x3C` |
+| OLED não mostra texto | Alimentação, SDA=23, SCL=22 e endereço `0x3C`; a tela mostra o estado desde a inicialização nos dois modos |
 | Motores não acionam | `--output motors`, confirmação `CONFIG_OK`, sensor quando habilitado, alimentação dos ESCs e pinagem |
 | Paradas por timeout | Tempo real de inferência e chegada de mensagens abaixo de três segundos |
 | Serial pronta, mas sem reconhecimento/movimento | Firmware atualizado, argumentos de sensor e `INICIAR:1`; para teste sem sensor, use `--output oled --no-ultrasonic` |
@@ -672,9 +699,11 @@ tail -f logs/recognition.jsonl
 
 ## Validação e próximos passos
 
-A revisão de software passou com **38 testes**, incluindo FPS, regiões, alvo,
-histerese, parada persistente, logs, serial com falhas, watchdog e firmware OLED
-sem PWM. Os perfis UART2 e USB compilaram para ESP32 Dev Module. A inferência
+A suíte de testes cobre FPS, encerramento da câmera, filtros do detector, regiões,
+alvo, histerese, parada persistente, logs, serial com falhas, watchdog,
+inicialização dos ESCs e firmware OLED sem PWM. Para executar, use
+`.venv/bin/python -m unittest discover -s tests`.
+Os perfis UART2 e USB compilaram para ESP32 Dev Module. A inferência
 com o SSD real e a geração de uma imagem com divisórias também foram verificadas.
 Os testes nativos cobrem as APIs Arduino-ESP32 2.x e 3.x.
 
