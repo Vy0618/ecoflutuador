@@ -76,7 +76,7 @@ int main(int argc, char**) {
   send("s\nCONFIG:OLED:1\n");
   assert(usarOled && usarUltrassonico && !iniciar && !armado);
   assert(testDetachCalls == 2);
-  assert(testDigitalValues[12] == LOW && testDigitalValues[14] == LOW);
+  assert(testDigitalValues[12] == LOW && testDigitalValues[13] == LOW);
   const uint32_t pwmCalls = testPwmCalls;
   testClock = inicio + 3000;
   loop();

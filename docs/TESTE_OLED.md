@@ -34,7 +34,7 @@ OLED SSD1306 de 128×64, endereço I2C `0x3C`:
 
 A ligação UART com a Raspberry está no [guia físico](TESTE_FISICO_RPI5.md).
 O HC-SR04 não precisa estar conectado no teste contínuo: nesse caso aparece
-`Dist: sem eco`. Quando conectado, a medição usa TRIG18 e ECHO19 em todos os
+`Dist: sem eco`. Quando conectado, a medição usa TRIG19 e ECHO21 em todos os
 modos, com adaptação do ECHO de 5 V para 3,3 V.
 Confira a alimentação e as ligações no [guia de hardware](HARDWARE.md#hc-sr04-ligações-previstas).
 

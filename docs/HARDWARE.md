@@ -16,7 +16,7 @@ correspondente a `Wire.begin(OLED_SDA, OLED_SCL)`, com SDA=23 e SCL=22.
 | Câmera USB | Fornece os quadros para o OpenCV | Modelo, consumo e porta USB física: **Pendente de confirmação** |
 | ESP32-WROOM-32 em placa de desenvolvimento | Interpreta comandos UART; exibe no OLED ou gera PWM para os ESCs | Módulo informado; modelo exato da placa e posição dos conectores: **Pendente de confirmação** |
 | OLED SSD1306 I²C | Mostra o comando interpretado e o comportamento esperado dos motores | Código para 128×64 e endereço `0x3C`; modelo exato do módulo e endereço medido: **Pendente de confirmação** |
-| HC-SR04 | Libera reconhecimento e movimentos por 30 s ao detectar distância válida abaixo de 15 cm | TRIG18/ECHO19 no código; alimentação e adaptação elétrica reais: **Pendentes de confirmação** |
+| HC-SR04 | Libera reconhecimento e movimentos por 30 s ao detectar distância válida abaixo de 15 cm | TRIG19/ECHO21 no código; alimentação e adaptação elétrica reais: **Pendentes de confirmação** |
 | Dois ESCs e motores brushless | Propulsão quando o firmware estiver no modo de motores | GPIOs dos sinais definidos; modelos, conectores e alimentação real: **Pendente de confirmação** |
 
 As opções `usarOled` e `usarUltrassonico` são configuradas pela UART a partir
@@ -86,12 +86,12 @@ alimentação de 3,3 V também precisa ser conferida em sua documentação.
 
 | Componente de origem | Pino de origem | Componente de destino | Pino de destino | Função |
 |---|---|---|---|---|
-| ESP32 | GPIO18 | HC-SR04 | TRIG | Pulso de disparo |
-| HC-SR04 | ECHO | ESP32 | GPIO19, através de adaptação de nível | Pulso usado para medir a distância |
+| ESP32 | GPIO19 | HC-SR04 | TRIG | Pulso de disparo |
+| HC-SR04 | ECHO | ESP32 | GPIO21, através de adaptação de nível | Pulso usado para medir a distância |
 | HC-SR04 | GND | ESP32 | GND | Referência elétrica comum |
 | Fonte adequada: **Pendente de confirmação** | **Pendente de confirmação** | HC-SR04 | VCC | HC-SR04 clássico especifica 5 V; alimentação real pendente |
 
-**Não conecte ECHO de 5 V diretamente ao GPIO19.** Use divisor de tensão ou
+**Não conecte ECHO de 5 V diretamente ao GPIO21.** Use divisor de tensão ou
 conversor de nível compatível com entrada de 3,3 V; os valores e a montagem
 reais precisam ser confirmados. A ESP32 mede a cada 100 ms, usando `pulseIn`
 com timeout de 30 ms. Leituras sem eco não liberam o sistema. O
@@ -199,9 +199,9 @@ da ESP32 são pinos de placas diferentes e têm funções diferentes.**
 | ESP32 | GPIO23 / D23 | `OLED_SDA = 23`: SDA do OLED | `Wire.begin(OLED_SDA, OLED_SCL)` na inicialização, em todos os modos |
 | ESP32 | GPIO22 / D22 | `OLED_SCL = 22`: SCL do OLED | `Wire.begin(OLED_SDA, OLED_SCL)` na inicialização, em todos os modos |
 | ESP32 | GPIO12 | `ESC_PIN1`: PWM do ESC1/motor esquerdo | Somente no modo motores (`usarOled=false`) |
-| ESP32 | GPIO14 | `ESC_PIN2`: PWM do ESC2/motor direito | Somente no modo motores (`usarOled=false`) |
-| ESP32 | GPIO18 | TRIG do HC-SR04 | Medições em todos os modos |
-| ESP32 | GPIO19 | ECHO do HC-SR04, após adaptação de nível | Medições em todos os modos |
+| ESP32 | GPIO13 | `ESC_PIN2`: PWM do ESC2/motor direito | Somente no modo motores (`usarOled=false`) |
+| ESP32 | GPIO19 | TRIG do HC-SR04 | Medições em todos os modos |
+| ESP32 | GPIO21 | ECHO do HC-SR04, após adaptação de nível | Medições em todos os modos |
 
 O Python usa `pyserial`, não uma biblioteca de controle direto de GPIO. O nome
 da porta serial é passado por `--serial-port`; `config.json` não configura a
@@ -215,7 +215,7 @@ não são GPIO0/1 adicionais.
 | Componente de origem | Pino de origem | Componente de destino | Pino de destino | Função |
 |---|---|---|---|---|
 | ESP32 | GPIO12 | ESC1 / motor esquerdo | Entrada de sinal: **Pendente de confirmação** | PWM previsto no código |
-| ESP32 | GPIO14 | ESC2 / motor direito | Entrada de sinal: **Pendente de confirmação** | PWM previsto no código |
+| ESP32 | GPIO13 | ESC2 / motor direito | Entrada de sinal: **Pendente de confirmação** | PWM previsto no código |
 | ESP32 | GND | Referência de sinal dos ESCs | Terminal e ligação real: **Pendente de confirmação** | Referência necessária para interpretar o PWM |
 
 Os pulsos configurados são 1000–2000 µs, a 50 Hz; potência 30 corresponde a 1300 µs.
@@ -391,7 +391,7 @@ ESC antes do teste com motores; o código não determina sua polarização elét
 ### Alimentação e ECHO do HC-SR04
 
 O HC-SR04 clássico especifica VCC de 5 V e ECHO em lógica de 5 V. Isso não
-autoriza usar 5 V no GPIO19: a entrada da ESP32 precisa receber o sinal
+autoriza usar 5 V no GPIO21: a entrada da ESP32 precisa receber o sinal
 adaptado para 3,3 V. Fonte, variante exata do sensor, divisor/conversor e GND
 comum reais permanecem pendentes. Não há uma nova ligação de alimentação
 Raspberry→ESP32 ou Raspberry→sensor presumida aqui. Veja as
@@ -431,7 +431,7 @@ Raspberry→ESP32 ou Raspberry→sensor presumida aqui. Veja as
 | Modelos de ESCs/motores, alimentação, conectores e aceitação de PWM 3,3 V | Elaborar posteriormente a montagem de propulsão |
 | Calibração e comportamento dos ESCs com pulso 1000 µs | Confirmar a parada física, não apenas o comando lógico |
 | Exibição real do OLED | Confirmar o funcionamento que testes simulados não medem |
-| Alimentação, variante e adaptação do ECHO do HC-SR04 | Proteger o GPIO19 e confirmar o disparo abaixo de 15 cm |
+| Alimentação, variante e adaptação do ECHO do HC-SR04 | Proteger o GPIO21 e confirmar o disparo abaixo de 15 cm |
 
 ## 12. Arquivos examinados e referências
 
@@ -453,7 +453,7 @@ do modelo e as dependências não definem novos GPIOs do projeto.
 
 A correspondência dos sete fios foi atualizada entre tabelas e SVGs;
 o Mermaid embutido corresponde à imagem exportada. A integração do HC-SR04
-acrescenta GPIO18/19 e as mensagens `INICIAR:1/0`, sem alterar os diagramas
+acrescenta GPIO19/21 e as mensagens `INICIAR:1/0`, sem alterar os diagramas
 do conjunto Raspberry–ESP32–OLED. **Não foi realizado teste físico.**
 
 Fontes técnicas adicionais às citadas junto às orientações:

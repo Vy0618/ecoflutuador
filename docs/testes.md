@@ -5,6 +5,81 @@ do OLED e dos motores, no computador e na Raspberry Pi 5 com ESP32-WROOM-32.
 A apresentação, o funcionamento, o hardware e as fontes estão no
 [README principal](../README.md).
 
+## Conexões dos cabos
+
+Na Raspberry, os números **GPIO/BCM** são diferentes dos números físicos do
+conector. Na ESP32, os números abaixo identificam seus GPIOs.
+
+### ESP32 — OLED
+
+| ESP32 / conexão | Pino do OLED | Função |
+|---|---|---|
+| GPIO22 / D22 | SCL | Clock I²C |
+| GPIO23 / D23 | SDA | Dados I²C |
+| 3V3 | VCC | Alimentação de 3,3 V |
+| Emenda de GND compartilhado | GND | Derivação 1 do cabo comum |
+
+### ESP32 — Sensor ultrassônico HC-SR04
+
+| ESP32 / fonte / conexão | Pino do HC-SR04 | Função ou observação |
+|---|---|---|
+| GPIO19 | TRIG | Pulso de medição enviado pela ESP32 |
+| GPIO21, **após adaptação para 3,3 V** | ECHO | Resposta do sensor; não ligar ECHO de 5 V diretamente ao GPIO |
+| Fonte de 5 V | VCC | Fonte e cabo reais: a confirmar |
+| Emenda de GND compartilhado | GND | Derivação 2 do cabo comum |
+
+### ESP32 — ESCs
+
+| ESP32 / conexão | ESC | Função ou observação |
+|---|---|---|
+| GPIO12 | Entrada de sinal do ESC 1 / motor esquerdo | PWM; identificação física do fio a confirmar |
+| GPIO13 | Entrada de sinal do ESC 2 / motor direito | PWM; segundo ESC previsto no código, montagem a confirmar |
+| Emenda de GND compartilhado | GND de referência do ESC informado | Derivação 3 do cabo comum |
+| GND comum com a ESP32 | GND de referência do segundo ESC, se instalado | Derivação física a confirmar |
+
+### Raspberry Pi 5 — ESP32
+
+| Raspberry Pi 5 | ESP32 | Função |
+|---|---|---|
+| GPIO14 / TX — **físico 8** | RX2 / GPIO16 | Comandos UART da Raspberry para a ESP32 |
+| GPIO15 / RX — **físico 10** | TX2 / GPIO17 | Respostas UART da ESP32 para a Raspberry |
+| GND — por exemplo, **físico 6** | GND comum | Pino físico efetivamente utilizado: a confirmar |
+
+### GNDs compartilhados
+
+| Origem | Ligação | Destino |
+|---|---|---|
+| GND do OLED | Derivação 1 | Emenda comum |
+| GND do HC-SR04 | Derivação 2 | Mesma emenda comum |
+| GND de referência do ESC informado | Derivação 3 | Mesma emenda comum |
+| Emenda dos três GNDs | **Um único cabo** | **Ponto de GND da montagem — destino físico a confirmar** |
+
+Os três fios de GND são unidos em uma emenda e seguem por um único cabo.
+O destino desse cabo foi descrito como
+“uma porta USB”; falta confirmar se isso significa um **pino GND da ESP32** ou
+o **GND de uma conexão USB**. As tabelas não pressupõem essa ligação. Todos esses
+GNDs devem compartilhar a referência elétrica da ESP32 e da Raspberry.
+
+### ESCs — Motores e alimentação de potência
+
+| Origem | Destino | Observação |
+|---|---|---|
+| Fonte/bateria dos motores | Entrada de alimentação dos ESCs | Tensão, conectores e cabos dependem dos ESCs; a confirmar |
+| Saída para motor do ESC 1 | Motor brushless esquerdo | Ordem e identificação dos fios: a confirmar |
+| Saída para motor do ESC 2, se instalado | Motor brushless direito | Ordem e identificação dos fios: a confirmar |
+
+As conexões de potência dos ESCs são separadas dos fios de sinal e de referência
+listados acima. Os detalhes elétricos estão em [HARDWARE.md](HARDWARE.md).
+
+### USB e alimentação das placas
+
+| Origem | Cabo | Destino | Função ou observação |
+|---|---|---|---|
+| Câmera USB | USB | Porta USB da Raspberry Pi 5 | Captura de imagens |
+| Computador ou Raspberry | USB de dados | Conector USB da ESP32 | Gravação; também comunica no perfil `esp32-usb` |
+| Fonte da Raspberry | Alimentação | Entrada de alimentação da Raspberry Pi 5 | Fonte e cabo reais: a confirmar |
+| Fonte da ESP32 | Alimentação | Entrada de alimentação da ESP32 | Forma de alimentação real: a confirmar |
+
 **Execute todos os comandos na raiz do projeto**, mesmo que este documento
 esteja dentro de `docs/`. A câmera é USB e o vídeo é exibido por padrão;
 `--no-display` permite executar sem janela.
@@ -15,6 +90,7 @@ Sem serial, a câmera e a detecção também funcionam continuamente.
 
 ## Conteúdo
 
+- [Conexões dos cabos](#conexões-dos-cabos)
 - [Instalação](#instalação)
 - [Seleção de OLED ou motores](#seleção-de-oled-ou-motores)
 - [Teste apenas do reconhecimento](#teste-apenas-do-reconhecimento)
@@ -174,10 +250,10 @@ OLED SSD1306 de endereço I²C `0x3C`.
 | OLED GND | GND |
 | OLED VCC | 3,3 V, com módulo compatível com essa alimentação |
 | Sinal do ESC 1 / motor esquerdo | GPIO 12 |
-| Sinal do ESC 2 / motor direito | GPIO 14 |
+| Sinal do ESC 2 / motor direito | GPIO 13 |
 | Referência dos ESCs | GND comum com a ESP32 |
-| HC-SR04 TRIG | GPIO18 |
-| HC-SR04 ECHO | Adaptação de nível de 5 V para 3,3 V → GPIO19 |
+| HC-SR04 TRIG | GPIO19 |
+| HC-SR04 ECHO | Adaptação de nível de 5 V para 3,3 V → GPIO21 |
 
 Para o modo motores, os GPIOs fornecem sinais aos ESCs; os ESCs e motores usam
 alimentação própria. Faça o primeiro teste de acionamento sem hélices. A parada
@@ -188,7 +264,7 @@ A tela usa I²C nos pinos SDA23/SCL22, conforme a
 Mais detalhes da tela estão no [guia OLED](TESTE_OLED.md).
 O HC-SR04 não precisa estar conectado no teste OLED padrão. Quando habilitado,
 o HC-SR04 clássico usa VCC de 5 V; a fonte real ainda precisa ser definida.
-Não conecte ECHO diretamente ao GPIO19. Confira GND, alimentação e adaptação
+Não conecte ECHO diretamente ao GPIO21. Confira GND, alimentação e adaptação
 nas [ligações previstas do sensor](HARDWARE.md#hc-sr04-ligações-previstas).
 
 ### Seleção do canal de comunicação
@@ -314,16 +390,19 @@ manualmente, sem a câmera, use o monitor serial descrito em [Comandos úteis](#
 ### 1. Instalar o projeto e a câmera
 
 Para o teste com vídeo, use Raspberry Pi OS de 64 bits com Desktop. A instalação
-abaixo parte dessa edição. Copie as fontes e os modelos **sem copiar `.venv/`**
-e crie o ambiente na Pi. Ambientes virtuais são vinculados ao sistema onde foram
+abaixo parte dessa edição. Clone o repositório e crie o ambiente na Pi.
+Ambientes virtuais são vinculados ao sistema onde foram
 criados; prepare um novo `.venv` na Raspberry, conforme a
 [documentação do Python](https://docs.python.org/3/library/venv.html).
 
-No terminal da Pi, instale o suporte a venv e, na raiz do projeto, execute:
+No terminal da Pi, instale o Git e o suporte a venv, clone o repositório e entre
+na pasta do projeto antes de criar o ambiente:
 
 ```bash
 sudo apt update
-sudo apt install -y python3-venv
+sudo apt install -y git python3-venv
+git clone https://github.com/Vy0618/ecoflutuador.git
+cd ecoflutuador
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check

@@ -26,8 +26,8 @@ auto& SerialComando = Serial2;
 
 constexpr uint8_t UART_RX_PIN = 16;
 constexpr uint8_t UART_TX_PIN = 17;
-const int trigPin = 18;
-const int echoPin = 19;
+const int trigPin = 19;
+const int echoPin = 21;
 constexpr int OLED_SDA = 23;
 constexpr int OLED_SCL = 22;
 const unsigned long tempoAtivacao = 30000;
@@ -36,7 +36,7 @@ uint32_t inicioTimer = 0;
 uint32_t ultimaLeitura = 0;
 
 constexpr uint8_t ESC_PIN1 = 12;
-constexpr uint8_t ESC_PIN2 = 14;
+constexpr uint8_t ESC_PIN2 = 13;
 constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr int ESC_MIN_US = 1000;
 constexpr int ESC_MAX_US = 2000;

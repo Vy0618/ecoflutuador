@@ -173,7 +173,7 @@ na inicialização e só prepara o acionamento após uma configuração válida.
 No teste contínuo, a configuração informa `INICIAR:1` sem depender do HC-SR04.
 O passo a passo está no [guia OLED](docs/TESTE_OLED.md).
 
-Quando habilitado, o HC-SR04 usa TRIG no GPIO 18 e ECHO no GPIO 19. A ESP32 mede a cada 100 ms,
+Quando habilitado, o HC-SR04 usa TRIG no GPIO 19 e ECHO no GPIO 21. A ESP32 mede a cada 100 ms,
 com espera máxima de 30 ms pelo pulso. Uma leitura válida abaixo de 15 cm envia
 `INICIAR:1`, liberando reconhecimento e movimentos por 30 segundos. Ao expirar,
 a ESP32 para localmente e envia `INICIAR:0`; o Python volta à espera. A consulta
@@ -237,7 +237,7 @@ entre GPIOs e funções UART está no
 [datasheet do ESP32-WROOM-32](https://documentation.espressif.com/esp32-wroom-32_datasheet_en.html).
 
 O motor esquerdo usa o ESC 1, com sinal no GPIO 12; o motor direito usa o ESC 2,
-com sinal no GPIO 14. O OLED usa **SDA no GPIO23** e **SCL no GPIO22**,
+com sinal no GPIO 13. O OLED usa **SDA no GPIO23** e **SCL no GPIO22**,
 conforme a montagem confirmada e os diagramas de hardware.
 Os ESCs exigem alimentação de potência própria e referência de GND com a ESP32;
 os detalhes da ligação física ainda precisam ser confirmados.
@@ -245,7 +245,7 @@ os detalhes da ligação física ainda precisam ser confirmados.
 O [HC-SR04 clássico](https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR04.pdf)
 usa alimentação de 5 V e pode entregar
 [ECHO de 5 V](https://learn.adafruit.com/ultrasonic-sonar-distance-sensors/pinouts).
-**ECHO precisa de divisor ou conversor de nível antes do GPIO 19**, que usa
+**ECHO precisa de divisor ou conversor de nível antes do GPIO 21**, que usa
 lógica de 3,3 V. A fonte real do sensor permanece pendente. O
 [guia de hardware](docs/HARDWARE.md#hc-sr04-ligações-previstas) descreve as
 ligações previstas; os diagramas anteriores continuam mostrando apenas os

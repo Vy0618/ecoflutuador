@@ -883,7 +883,7 @@ resultado da inicialização, não uma medição do movimento.
 ### 13.3. `setup()` e `configurarSaida()`: iniciar e escolher a saída
 
 `setup()` abre a serial. No modo UART2, também abre `Serial2` com os pinos
-configurados. Inicializa TRIG18/ECHO19 e o OLED e mostra `CMD: s` e `Dist: sem eco`.
+configurados. Inicializa TRIG19/ECHO21 e o OLED e mostra `CMD: s` e `Dist: sem eco`.
 Em seguida, envia `CONFIG_REQUIRED`: a placa continua lendo comandos e medindo
 a distância, sem gerar PWM, enquanto aguarda a escolha de operação.
 
@@ -902,7 +902,7 @@ versão do core Arduino-ESP32. A ligação confirmada usa SCL22/SDA23;
 veja a tabela de conexões em
 [HARDWARE.md](HARDWARE.md).
 
-TRIG no GPIO18 e ECHO no GPIO19 são configurados independentemente do modo.
+TRIG no GPIO19 e ECHO no GPIO21 são configurados independentemente do modo.
 O sensor usa um circuito externo cuja tensão do ECHO deve ser compatível com a
 ESP32; a implementação não faz essa adaptação elétrica.
 

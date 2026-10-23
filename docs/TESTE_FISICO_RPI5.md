@@ -29,7 +29,7 @@ Os números das UARTs são próprios de cada placa: a UART0 da Raspberry pode
 conversar com a UART2 da ESP32.
 
 Os motores continuam na pinagem existente: ESC 1, motor esquerdo, GPIO 12;
-ESC 2, motor direito, GPIO 14. Os ESCs usam sua alimentação própria e compartilham
+ESC 2, motor direito, GPIO 13. Os ESCs usam sua alimentação própria e compartilham
 a referência de GND com a ESP32. Os GPIOs fornecem apenas os sinais dos ESCs.
 
 GPIO 12 também participa da configuração de boot do ESP32 clássico. Se a
@@ -109,10 +109,14 @@ sudo usermod -a -G dialout "$USER"
 
 ## Ambiente e câmera na Raspberry
 
-Copie o projeto e crie um ambiente novo na Pi; não copie o `.venv` de um
-computador x86. Na raiz do projeto:
+Clone o repositório na Pi e crie um ambiente novo nela; não copie o `.venv`
+de um computador x86. No terminal da Raspberry:
 
 ```bash
+sudo apt update
+sudo apt install -y git python3-venv
+git clone https://github.com/Vy0618/ecoflutuador.git
+cd ecoflutuador
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check

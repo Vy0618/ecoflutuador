@@ -48,7 +48,7 @@ int main(int argc, char**) {
   loop();
   if (!usarUltrassonico) {
     assert(iniciar && armado);
-    assert(testPinModeCalls[18] == 1 && testPinModeCalls[19] == 1);
+    assert(testPinModeCalls[19] == 1 && testPinModeCalls[21] == 1);
     SerialComando.output.clear();
     send("?\n");
     assert(SerialComando.output == "CAPS:HEARTBEAT\nINICIAR:1\nREADY\n");

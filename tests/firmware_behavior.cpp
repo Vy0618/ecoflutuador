@@ -18,7 +18,7 @@ void expectPulses(int first, int second) {
   assert(atual1 == first && atual2 == second);
 #if TEST_CORE_VERSION >= 3
   assert(testDuty[12] == pulsoParaDuty(first));
-  assert(testDuty[14] == pulsoParaDuty(second));
+  assert(testDuty[13] == pulsoParaDuty(second));
 #else
   assert(testDuty[0] == pulsoParaDuty(first));
   assert(testDuty[1] == pulsoParaDuty(second));
@@ -52,8 +52,8 @@ int main() {
   assert(armado && SerialComando.output.find("READY") != std::string::npos);
   assert(comandoAtual == 's');
   assert(!iniciar);
-  assert(testPinModeCalls[18] == 1 && testPinModes[18] == OUTPUT);
-  assert(testPinModeCalls[19] == 1 && testPinModes[19] == INPUT);
+  assert(testPinModeCalls[19] == 1 && testPinModes[19] == OUTPUT);
+  assert(testPinModeCalls[21] == 1 && testPinModes[21] == INPUT);
   SerialComando.output.clear();
   send("?\n");
   assert(SerialComando.output == "CAPS:HEARTBEAT\nINICIAR:0\nREADY\n");
@@ -68,8 +68,8 @@ int main() {
   loop();
   testEchoDuration = 0;
   assert(iniciar);
-  assert(testPulsePin == 19 && testPulseState == HIGH && testPulseTimeout == 30000);
-  assert(testDigitalValues[18] == LOW);
+  assert(testPulsePin == 21 && testPulseState == HIGH && testPulseTimeout == 30000);
+  assert(testDigitalValues[19] == LOW);
   SerialComando.output.clear();
   send("?\n");
   assert(SerialComando.output == "CAPS:HEARTBEAT\nINICIAR:1\nREADY\n");
