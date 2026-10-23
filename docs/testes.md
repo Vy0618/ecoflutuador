@@ -10,6 +10,12 @@ A apresentação, o funcionamento, o hardware e as fontes estão no
 Na Raspberry, os números **GPIO/BCM** são diferentes dos números físicos do
 conector. Na ESP32, os números abaixo identificam seus GPIOs.
 
+A pinagem atual do firmware é: **TRIG19, ECHO21, SDA23, SCL22, ESC1 no
+GPIO12 e ESC2 no GPIO13**. A UART permanece em **RX2/GPIO16 e TX2/GPIO17**.
+Se a montagem ainda usa TRIG18, ECHO19 ou ESC2 no GPIO14, desligue a alimentação,
+mova os fios conforme as tabelas abaixo e regrave o firmware usando o perfil
+correspondente à sua conexão, conforme as instruções de gravação deste guia.
+
 ### ESP32 — OLED
 
 | ESP32 / conexão | Pino do OLED | Função |
@@ -44,6 +50,10 @@ conector. Na ESP32, os números abaixo identificam seus GPIOs.
 | GPIO14 / TX — **físico 8** | RX2 / GPIO16 | Comandos UART da Raspberry para a ESP32 |
 | GPIO15 / RX — **físico 10** | TX2 / GPIO17 | Respostas UART da ESP32 para a Raspberry |
 | GND — por exemplo, **físico 6** | GND comum | Pino físico efetivamente utilizado: a confirmar |
+
+O GND entre a Raspberry e a ESP32 estabelece a referência elétrica comum dos
+sinais UART de 3,3 V e o caminho de retorno da corrente desses sinais. Ele não
+alimenta a ESP32. Mantenha essa referência comum mesmo com fontes separadas.
 
 ### GNDs compartilhados
 
