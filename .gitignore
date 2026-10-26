@@ -6,6 +6,7 @@ env/
 V3
 V4
 aquamonitor
+/docs/estudo_do_codigo.md
 
 # Python e ferramentas
 __pycache__/
