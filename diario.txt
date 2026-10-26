@@ -1,0 +1,588 @@
+AUDITORIA HISTÓRICA DO ECOFLUTUADOR — 26/10/2026
+
+Escopo: leitura do workspace, todas as referências Git disponíveis, reflogs, diferenças de código, documentação, modelos, arquivo histórico original e objetos sem referência. A investigação original foi realizada sem alterar arquivos do projeto. Este diario.txt foi criado posteriormente na raiz, por solicitação expressa do usuário, para registrar os resultados. Os arquivos auxiliares da investigação foram escritos em /tmp/ecoflutuador-auditoria-2026-10-26/. Não foram executados programas de controle, testes com escrita no projeto, compilação ou acionamento de hardware nesta auditoria.
+
+RESULTADO E CRITÉRIO DAS DATAS
+
+Foram identificados 74 commits: 17 alcançáveis pelas referências atuais, de 08 a 23/10/2026, e 57 não alcançáveis, de 13/03 a 25/07/2026. Os 57 formam uma cadeia contínua independente. Foram encontrados por git fsck --full --no-reflogs --unreachable; git log --all sozinho não os mostrava. A presença desses objetos comprova o conteúdo dos commits, mas não informa qual branch antiga os continha ou por que perderam referências. Não foi criada branch de recuperação nem alterada a base Git.
+
+Todas as datas de autor e de commit coincidem nos 74 registros. Os horários abaixo são os metadados Git, em UTC−03:00, e não comprovam o instante da implementação nem execução física. As mensagens originais, os autores e os hashes completos estão transcritos nesta cronologia. A planilha auxiliar commits-todos.csv também contém os pais e as duas datas de cada commit. O prompt recebido termina em “02”; não foi possível identificar o restante das datas prioritárias.
+
+EVOLUÇÃO DAS VERSÕES E AMBIGUIDADE DOS NOMES
+
+| Identificação encontrada | Primeira evidência datada | Significado verificável |
+| Sketch inicial, sem V1 explícito | 13/03/2026, 001058c | Arduino, sensor de distância e motores digitais; não atribuir automaticamente o nome V1 |
+| V3.0/V3.1/V3.2 antigas | 23/03 a 02/04/2026 | Software Arduino para motores DC e ultrassônico, depois chamado automaticoDC.cpp |
+| V4/Brushless antigo | 24/03/2026, c6e45a8 | Firmware com Servo/ESC, depois automaticoBrushless.cpp; não é a pasta V4 modular de outubro |
+| controleEcoFlutuadorV1 | 19/04/2026, ce27963 | Controle Wi-Fi/HTTP embarcado de dois ESCs |
+| controleEcoFlutuadorV2 | 29/04/2026, cf94267 | Controle embarcado com interface de vídeo da Raspberry; renomeado controleImagemV2 |
+| controleEcoFLutuadorV2.ino | 03/05/2026, dcc8525 | Outra variante V2: comandos seriais e ACK |
+| EcoFlutuador/V3/ | 19/05/2026, a5dc9e4 | Organização do conjunto Raspberry/ESP32, servidores Flask e reconhecimento |
+| V3/, V4/, v4.5/ | 08/10/2026, 28295dc | Importação em nova raiz Git; V4 já entra com sensores, POC, API, mocks e evidências |
+| V4.1/ | 12/10/2026, 8781ff1 | Pipeline local de reconhecimento com SSD compatível proveniente do AquaMonitor |
+| V4.1 promovido à raiz | 12/10/2026, 85488f2 | Base ativa atual, ampliada até 23/10 |
+
+Não foram localizadas pastas literais V1/ e V2/ nas duas cadeias examinadas; existem arquivos com esses nomes de versão. Também não é correto ordenar toda a história como V1→V2→V3→V4: o V3 Arduino de março antecede o controle V1 de abril. A nomenclatura identifica componentes/gerações distintas.
+
+CRONOLOGIA COMPLETA — CONTEÚDO VERIFICADO POR COMMIT
+
+CADEIA HISTÓRICA SEM REFERÊNCIA ATUAL
+
+DATA: 13/03/2026 16:39:57 (UTC−03:00)
+COMMIT: 5bd7e432ab021b2de97da4853560807379bfc5d0
+MENSAGEM ORIGINAL: Initial commit
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Criação do README inicial da cadeia histórica.
+
+DATA: 13/03/2026 16:41:21 (UTC−03:00)
+COMMIT: 001058cc3657e997dff5592631fe26990487afe9
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão do primeiro sketch: ultrassônico TRIG11/ECHO10, motores digitais 42/40/41/43, busca a 100 cm e aproximação a 7 cm. O comentário de funcionamento não substitui validação: falta ponto e vírgula após delay(5000).
+
+DATA: 23/03/2026 22:02:10 (UTC−03:00)
+COMMIT: e13d2ed8e2f78685d5dd97eaf6da98ded9fe2746
+MENSAGEM ORIGINAL: Add ecoFlutuadorV3 with motor control and detection
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de ecoFlutuadorV3.cpp, identificado como versão 3.0: funções de motores, busca, aproximação e coleta por distância. Contém Serial.prinln incorreto e setup sem Serial.begin.
+
+DATA: 24/03/2026 11:51:02 (UTC−03:00)
+COMMIT: 75d9bb92563e6eb8d9da2814ff21c8ff90ac70a8
+MENSAGEM ORIGINAL: Update ecoFlutuadorV3.cpp
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Versão interna 3.1: distância-alvo 7→20 cm, avanço prévio 2→5 s; correção de Serial.println; inclusão de Serial.begin(9600) e mensagem inicial.
+
+DATA: 24/03/2026 15:56:54 (UTC−03:00)
+COMMIT: c6e45a8755be2e68f50a063aad3d3f13131cc57d
+MENSAGEM ORIGINAL: Create ecoFlutuadorV4.cpp
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de ecoFlutuadorV4.cpp para brushless com Servo.h e controle angular dos ESCs; avanço 70%, giro 50%. Há conflito ECHO/ESC2 no pino 10 e chamadas com argumentos para funções sem parâmetros.
+
+DATA: 24/03/2026 16:12:42 (UTC−03:00)
+COMMIT: 9e1f64b080172b9f19c46c5a18c3c51845c3692f
+MENSAGEM ORIGINAL: Atualizar o ecoFlutuadorV4.cpp
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Remoção de comentários de seção no V4.cpp; sem correção funcional desses problemas.
+
+DATA: 30/03/2026 14:48:39 (UTC−03:00)
+COMMIT: f28a4d3fcc85fc123a0eee9b2884f01eb52b9256
+MENSAGEM ORIGINAL: Update programacaoEcoFlutuador.ino
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Sketch inicial: motores remapeados 42/40/41/43→5/7/6/4; ajuste de final de arquivo.
+
+DATA: 02/04/2026 08:24:34 (UTC−03:00)
+COMMIT: dd5c991a60f57fc8b0057ad063dc66b6991f9750
+MENSAGEM ORIGINAL: Add ecoFlutuador V3.1 Arduino code
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de sketch V3.1 .ino com rotinas de ultrassônico, motores DC e aproximação a 20 cm.
+
+DATA: 02/04/2026 08:24:50 (UTC−03:00)
+COMMIT: 9c1c235ea0cde283e675313098c58e4509927ca0
+MENSAGEM ORIGINAL: Update and rename ecoFlutuadorV3.1.ino to ecoFlutuadorV3.2.ino
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Renomeação V3.1.ino→V3.2.ino e alteração do comentário da versão; lógica preservada.
+
+DATA: 02/04/2026 08:26:32 (UTC−03:00)
+COMMIT: 1dccf8acb785bd708e6f39d278edbcc4ab21c322
+MENSAGEM ORIGINAL: Add sensor distance measurement functionality
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de testeSensor.ino: medição isolada do ultrassônico, faixa 2–400 cm e saída serial a cada 500 ms.
+
+DATA: 02/04/2026 09:16:23 (UTC−03:00)
+COMMIT: 20619cc566a313360ef628e0ef412bacd5d3570b
+MENSAGEM ORIGINAL: Update ecoFlutuador to version 3.2 with adjustments
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: V3.cpp passa a versão interna 3.2: motores 40/41/42/43, alvo 30 cm, aproximação com while(true), contador de leituras e diagnóstico. Timeout continua depois do tratamento que repete leituras inválidas.
+
+DATA: 02/04/2026 09:16:38 (UTC−03:00)
+COMMIT: 4ce1b34853da6569308af9eb4501e76758ca6d50
+MENSAGEM ORIGINAL: Delete programacaoEcoFlutuador/ecoFlutuadorV3.2.ino
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Exclusão do V3.2.ino duplicado; implementação .cpp permanece.
+
+DATA: 08/04/2026 16:26:35 (UTC−03:00)
+COMMIT: 35c443417a29e6fa13a8d70cb25539a325b461f6
+MENSAGEM ORIGINAL: Add motor control functions for Arduino
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de testeMotores.ino: avanço por 10 s e rotação por 5 s com pinos digitais.
+
+DATA: 15/04/2026 15:29:14 (UTC−03:00)
+COMMIT: 2dca76a5f866c2acd9f2129f8e3efe9f09e9e918
+MENSAGEM ORIGINAL: Add ESP32 web server for robot control
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Servidor HTTP na ESP32, ponto de acesso Wi-Fi, interface HTML e /move para controle de quatro motores por duas pontes H; exemplo distinto do firmware de dois ESCs.
+
+DATA: 15/04/2026 21:42:14 (UTC−03:00)
+COMMIT: 438e2d6604864b776535e94b65ec96d654d7bf91
+MENSAGEM ORIGINAL: Add ESC control for motor testing with Arduino
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Teste de dois ESCs com ESP32Servo, GPIO12/14, controle angular, armamento 3 s e alternância avanço/parada.
+
+DATA: 15/04/2026 22:13:04 (UTC−03:00)
+COMMIT: 643103916961f02b0c94427b9a78a8625ee1a106
+MENSAGEM ORIGINAL: Add initial Arduino sketch for Eco Flutuador
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de rascunho de integração ESC/sensor. Pinos de sensor 99 e funções com retornos/tipos inconsistentes caracterizam código incompleto.
+
+DATA: 16/04/2026 15:34:54 (UTC−03:00)
+COMMIT: c823765ada82b95671bc034599a51d3a9bdabcee
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de duas interfaces HTML de inspeção de rolamentos/magnetômetro do Grandprix; usam canvas, JavaScript e Chart.js. São outro contexto de aplicação, sem comprovação de desempenho do EcoFlutuador.
+
+DATA: 17/04/2026 16:21:39 (UTC−03:00)
+COMMIT: a39000bc4e906d607e3dddc8c09ea12e4f8c1e9c
+MENSAGEM ORIGINAL: Update testeMotoresEsc.ino
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Teste ESC muda de ângulos para pulsos explícitos 1000–2000 µs, preservando GPIO12/14 e armamento 3 s.
+
+DATA: 19/04/2026 12:32:05 (UTC−03:00)
+COMMIT: ce27963117d52bbd965b32aae27925735a24abe3
+MENSAGEM ORIGINAL: Add EcoFlutuador control code for ESP32
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de controleEcoFlutuadorV1: ESP32, Wi-Fi em modo AP, HTTP porta 80, HTML e /move; comandos w/a/d/q/e/s e dois ESCs com pulsos em microssegundos.
+
+DATA: 22/04/2026 17:02:40 (UTC−03:00)
+COMMIT: fd3191437e008f246c2d616c4dc029a7ec92ef61
+MENSAGEM ORIGINAL: Change WiFi SSID from 'ESP32-Robo' to 'ESP32-EcoFlutuador'
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Alteração do nome da rede Wi-Fi do controle V1; lógica de motores preservada.
+
+DATA: 27/04/2026 22:28:02 (UTC−03:00)
+COMMIT: 8da7a8f723320f2095c9bd20afb9db19253a6784
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de guia Raspberry: instalação Flask/OpenCV, exemplo de câmera/stream MJPEG e unidade systemd. O exemplo inicial usa dev/video0 sem barra inicial.
+
+DATA: 29/04/2026 03:05:38 (UTC−03:00)
+COMMIT: cf94267dd2b2a2396376b78f49b7b8089774c2d6
+MENSAGEM ORIGINAL: Add control code for EcoFlutuador with web server
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de controleEcoFlutuadorV2: preserva controle HTTP/ESCs e acrescenta vídeo remoto da Raspberry, estado do stream e controles de toque com parada ao soltar.
+
+DATA: 29/04/2026 03:34:43 (UTC−03:00)
+COMMIT: 4b00d1c13c3eb027a83705c2a8d41189bfd826a7
+MENSAGEM ORIGINAL: Update stream URL for Raspberry Pi
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: URL do stream muda de 192.168.4.2:5000/stream para 192.168.4.1/stream.
+
+DATA: 29/04/2026 04:15:11 (UTC−03:00)
+COMMIT: 8a33508b4d444f69de8aa60ee89756a1529ab982
+MENSAGEM ORIGINAL: Update controleEcoFlutuadorV2
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: URL do stream muda novamente para 192.168.4.2/stream, sem porta 5000 explícita.
+
+DATA: 29/04/2026 04:33:22 (UTC−03:00)
+COMMIT: 9d02995d9c14e94423435bff0e3ac92e5ff4b99a
+MENSAGEM ORIGINAL: Update Raspberry Setup Guia.txt
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Guia corrige /dev/video0 e amplia instruções de vídeo/interface e proxy Nginx; texto de instalação não comprova serviço implantado.
+
+DATA: 29/04/2026 04:40:39 (UTC−03:00)
+COMMIT: ac94ee0382e2b46169d8480dfbfeb5f5e67b6e24
+MENSAGEM ORIGINAL: Update and rename ecoFlutuadorV4.cpp to automaticoBrushless.cpp
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: V4.cpp é substituído por automaticoBrushless.cpp: ESCs GPIO12/14, pulsos 1000–2000 µs, potência 35%, alvo 30 cm e armamento 3 s. Servo.h continua presente.
+
+DATA: 29/04/2026 04:41:04 (UTC−03:00)
+COMMIT: d32b43e87e57db06454eb1832b7ed61b9ba11395
+MENSAGEM ORIGINAL: Rename ecoFlutuadorV3.cpp to automaticoDC.cpp
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Renomeação exata ecoFlutuadorV3.cpp→automaticoDC.cpp, sem mudança de conteúdo.
+
+DATA: 29/04/2026 04:41:31 (UTC−03:00)
+COMMIT: dcb0375e73cf3dd3b21c4bd30608db12dfea9133
+MENSAGEM ORIGINAL: Add controleImagemV2 file to project
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Renomeação exata controleEcoFlutuadorV2→controleImagemV2; apesar da mensagem de adição, não há nova lógica.
+
+DATA: 30/04/2026 08:40:16 (UTC−03:00)
+COMMIT: c3b5e1b98562e524da01c5c78e3861f8d2d2acde
+MENSAGEM ORIGINAL: Change WiFi SSID and connection method
+AUTOR: Vy0618; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Controle de imagem troca configuração Wi-Fi e tenta passar AP→STA. Linhas prefixadas por # no lugar de comentários C++ introduzem diretivas inválidas.
+
+DATA: 01/05/2026 21:17:05 (UTC−03:00)
+COMMIT: 2f703cd5e5c7bf39db74a6b89d122eb3c62f4297
+MENSAGEM ORIGINAL: Update Raspberry Setup Guia.txt
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Guia de câmera reduz resolução solicitada 640×480→320×240; outros ajustes de instruções.
+
+DATA: 01/05/2026 21:59:39 (UTC−03:00)
+COMMIT: 9636edef762cd5a16ef51a7093d875918595e5e4
+MENSAGEM ORIGINAL: Add ESP32 receiver code for remote control
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de receptorESP32.cpp: estação Wi-Fi com IP estático, /move, /ping e CORS; controle remoto dos dois ESCs.
+
+DATA: 02/05/2026 02:01:12 (UTC−03:00)
+COMMIT: 60ed12d049e9773be70a90419a20cf39df1b20b4
+MENSAGEM ORIGINAL: Update WiFi SSID and adjust connection method
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Controle de imagem retorna à configuração de AP; linhas com # para desativar instruções continuam inadequadas em C++.
+
+DATA: 02/05/2026 02:13:10 (UTC−03:00)
+COMMIT: 27ecd3e27f3d661b697de07890fd0219e655a195
+MENSAGEM ORIGINAL: Update Raspberry Setup Guia.txt
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Ampliação do guia Raspberry com exemplo de firmware/controle e configuração de rede; não é implementação independente de um novo detector.
+
+DATA: 03/05/2026 16:51:44 (UTC−03:00)
+COMMIT: dcc8525609a6b810757b6622f0ba49f8dfbb3828
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de controleEcoFLutuadorV2.ino: controle por caractere serial a 115200, comandos de movimento, dois ESCs e confirmação CMD_OK.
+
+DATA: 09/05/2026 09:27:25 (UTC−03:00)
+COMMIT: bd051e1c598f2d64618c59dec600bd1bfb195257
+MENSAGEM ORIGINAL: Create readme
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Criação de readme em diretório de programação.
+
+DATA: 09/05/2026 09:27:56 (UTC−03:00)
+COMMIT: 230d1bc9f6118e78f3beea4ad9a19b66cb1bfb9e
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de ControleESP32.ino com rampa bloqueante e comando de potência global; servidor2.py com Flask, câmera USB/V4L2, MJPEG, comandos HTTP e logs. /move envia caractere sem newline enquanto firmware lê até newline.
+
+DATA: 11/05/2026 03:31:27 (UTC−03:00)
+COMMIT: 0a3dcfbd7799a55149a1e707f9188f225c271215
+MENSAGEM ORIGINAL: Create object-ident.py
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de object-ident.py: SSD MobileNet V3 via cv2.dnn_DetectionModel, entrada 320×320, filtros bottle, confiança 0,45 e NMS 0,2; pesos em caminho externo. Arquivo usa cv2 sem importá-lo.
+
+DATA: 11/05/2026 05:09:24 (UTC−03:00)
+COMMIT: 76c92b198d28714a7a0db7622177147fd817e871
+MENSAGEM ORIGINAL: Add exit condition for object identification loop
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de saída por tecla q no loop do reconhecimento.
+
+DATA: 11/05/2026 17:22:20 (UTC−03:00)
+COMMIT: 91a32c7329cb556b205059ad627f26daf74315e6
+MENSAGEM ORIGINAL: Update ControleESP32.ino
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Firmware passa a potências independentes por motor e protocolo P1045/P2070 com PWR_OK por motor; altera rotinas de curvas e preserva rampa bloqueante.
+
+DATA: 11/05/2026 17:23:04 (UTC−03:00)
+COMMIT: 086ff272d452741f63ecfd8d11c67e63f8e212b8
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de servidorSliders.py com ajustes de potência, reconexão serial, vídeo e interface; unidade ecoflutuador.service para execução pelo systemd.
+
+DATA: 19/05/2026 11:45:35 (UTC−03:00)
+COMMIT: 84f9ac332ddcb48cfdfb610e89499035accdce5c
+MENSAGEM ORIGINAL: Delete programacaoEcoFlutuador directory
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Exclusão de 12 arquivos de programacaoEcoFlutuador; posterior reinclusão em Legado no mesmo dia.
+
+DATA: 19/05/2026 11:45:44 (UTC−03:00)
+COMMIT: 6b334f452908057db2a055ffd8c85e3c88841d82
+MENSAGEM ORIGINAL: Delete Programacação Eco Flulutador directory
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Exclusão dos seis arquivos do diretório antigo de programação; posteriormente reincluídos sob EcoFlutuador/V3.
+
+DATA: 19/05/2026 11:45:50 (UTC−03:00)
+COMMIT: 8d3c8fa3e45591aa0d6d7d730ed7895017777adb
+MENSAGEM ORIGINAL: Delete GrandprixFeVini directory
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Exclusão dos dois HTMLs de GrandprixFeVini; posteriormente reincluídos em GrandPrix.
+
+DATA: 19/05/2026 11:45:59 (UTC−03:00)
+COMMIT: ef795e60f4db892bb902ad8c2a6a236fef4cf9b4
+MENSAGEM ORIGINAL: Delete arquivoServerEspMarcelo
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Exclusão do exemplo arquivoServerEspMarcelo; posteriormente reincluído em Legado.
+
+DATA: 19/05/2026 11:46:28 (UTC−03:00)
+COMMIT: a5dc9e482a20565a2bcbc2350565f581ffc620f7
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Reorganização por upload: EcoFlutuador/Legado, EcoFlutuador/V3 e GrandPrix. Reintroduz arquivos removidos nos quatro commits anteriores; não equivale a apagar definitivamente essas funcionalidades.
+
+DATA: 21/05/2026 13:57:58 (UTC−03:00)
+COMMIT: c1a955fa51514b118c9dc9bc9e1a3bcfd781ea90
+MENSAGEM ORIGINAL: Create ControleESP32V2
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de ControleESP32V2: comandos w/a/d/s, potência por motor e aplicação direta de pulsos. Constantes de rampa permanecem, mas a rampa não é executada.
+
+DATA: 21/05/2026 13:58:18 (UTC−03:00)
+COMMIT: b011027883e9544ef4ac58a4636afecca580978f
+MENSAGEM ORIGINAL: Rename servidor2.py to servidor.py
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Renomeação exata servidor2.py→servidor.py.
+
+DATA: 21/05/2026 13:59:41 (UTC−03:00)
+COMMIT: 08bf0c2699cc4b69d52ad0218a4897c37db15295
+MENSAGEM ORIGINAL: "Esquerda" e "direita" removidos.
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Interface de servidorSliders remove botões laterais antigos; os botões de giro passam a enviar a/d em vez de q/e. Não elimina as rotas ou todos os comandos do backend.
+
+DATA: 21/05/2026 14:01:25 (UTC−03:00)
+COMMIT: 2a7c622dbc2bef45f3391e1cac1a94749f706aad
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de servidorUnificado.py: manual/automático, SSD para bottle, maior caixa e três regiões, stream, potência e logs. Detecção é chamada na captura e no loop autônomo.
+
+DATA: 27/05/2026 16:03:02 (UTC−03:00)
+COMMIT: 4f930f3e9282c560dbeb6099451316b8f845d24d
+MENSAGEM ORIGINAL: internet issues fixer
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de perfil NetworkManager para conectividade. Conteúdo de credenciais não reproduzido nesta auditoria.
+
+DATA: 05/07/2026 02:35:54 (UTC−03:00)
+COMMIT: f679d1adafd49d02181d85e094b350f18b17fd1c
+MENSAGEM ORIGINAL: Create diario
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Registro de diário de 05/07: confusão entre /dev/video0 e porta serial, ausência de ESP32 e proposta de SerialManager/modularização; o texto é proposta, não prova de implementação naquele dia.
+
+DATA: 07/07/2026 16:00:42 (UTC−03:00)
+COMMIT: 4c6e8d2ebaa1b721f921e8800d6f4b985eede650
+MENSAGEM ORIGINAL: Add Flask application for Labdisc Dashboard
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de interfaceLabdisc.py: Flask servindo iframe do Globilab com permissões bluetooth/serial. Não há aquisição nativa de pH/GPS nesse arquivo.
+
+DATA: 23/07/2026 20:44:34 (UTC−03:00)
+COMMIT: 6580ffe3e53c4edf7888d2b9e035f076d4a6b7ba
+MENSAGEM ORIGINAL: Dividir servidor da RPi em múltiplos arquivos
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Inclusão de nota sobre separar servidor em arquivos; alteração apenas documental.
+
+DATA: 23/07/2026 20:45:05 (UTC−03:00)
+COMMIT: 4b3c0a16a2781ad377a1e067cc93e67ef171e5ff
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Criação de HTML/CSS/JS separados e servidor em Servidor 1.0. Rota / retorna None; template/estáticos ainda não configurados. Inferência duplicada ainda existe.
+
+DATA: 23/07/2026 23:10:38 (UTC−03:00)
+COMMIT: 86eb16fe014d10cde331e6c9452ffc76c44243fe
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Servidor passa a render_template e reutiliza objectInfo calculado na captura para a decisão, eliminando segunda inferência desse fluxo; reorganiza funções de logs/serial e captura passa a esperar 100 ms.
+
+DATA: 23/07/2026 23:11:13 (UTC−03:00)
+COMMIT: f3f1dd1bbd3824c6b2e76c067d468d21d3129994
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Commit sem alteração de árvore em relação ao pai, apesar da mensagem Add files via upload.
+
+DATA: 25/07/2026 12:45:14 (UTC−03:00)
+COMMIT: 5a923771a41f719d0799af69904c45e83d6aab00
+MENSAGEM ORIGINAL: Add files via upload
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: Corrige integração Flask de interface: template_folder/static_folder no diretório atual e URLs via url_for; remove py-script e move JavaScript para o fim do HTML.
+
+
+CADEIA DAS REFERÊNCIAS ATUAIS
+
+DATA: 08/10/2026 19:44:06 (UTC−03:00)
+COMMIT: bc485699bd22299a95bb026cf1e43e09c7e276e8
+MENSAGEM ORIGINAL: Initial commit
+AUTOR: V Azevedo; responsável pelo commit: GitHub
+ALTERAÇÕES VERIFICADAS: README inicial da cadeia remota incorporada em outubro.
+
+DATA: 08/10/2026 21:52:21 (UTC−03:00)
+COMMIT: 28295dc1f59cf65a6bec4ab0ba69dba298174920
+MENSAGEM ORIGINAL: inicia-se o refatorameto e correção da versão v4 do ecoflutuador
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Importação inicial local de 114 arquivos: V3, V4 modular e v4.5, documentação, testes, modelos e dependências. É outra raiz Git, sem parentesco Git com a cadeia de março–julho.
+
+DATA: 08/10/2026 22:02:42 (UTC−03:00)
+COMMIT: 7be62a31e2853d6ce1d0916fef9b253350e2414c
+MENSAGEM ORIGINAL: message
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Merge das duas raízes de outubro, pais 28295dc e bc48569; incorpora README ao primeiro pai. Mensagem message não descreve a operação.
+
+DATA: 08/10/2026 22:13:38 (UTC−03:00)
+COMMIT: 5e56000e7c67e4e61d9c5a3422acd37864250630
+MENSAGEM ORIGINAL: Documenta projeto no README principal
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Ampliação do README principal com arquitetura, versões, instalação e limitações.
+
+DATA: 08/10/2026 23:28:42 (UTC−03:00)
+COMMIT: 1b7e9dac2437383f37bda63cfc2814db2ea7a097
+MENSAGEM ORIGINAL: servidor.py repartido
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Refatoração de v4.5/Servidor 1.0 em câmera, config, controlador, detector, navegação, serial, logs e web. Uma inferência/captura, bloqueio de comandos antigos após troca de modo, STOP e testes; remove servidores duplicados e documentos antigos.
+
+DATA: 12/10/2026 01:48:30 (UTC−03:00)
+COMMIT: 8781ff1d0057a35f4da96c682baac24260948cde
+MENSAGEM ORIGINAL: implementado reconhecimento de imagem na versão v.4.1
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Inclusão de V4.1 com SSD local oriundo do AquaMonitor, captura assíncrona e limite de FPS, JSON, regiões, decisão e testes. Exclui V3 e v4.5; reorganiza V4, adiciona preview/config e filtro de classes; inclui gitlink aquamonitor.
+
+DATA: 12/10/2026 12:26:56 (UTC−03:00)
+COMMIT: cfb08542c03a4deefdb39e03c0f8e6d1874102cf
+MENSAGEM ORIGINAL: headless execution of cv model
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Inclui headless no JSON e aliases CLI; valor headless=false, intervalo de inferência 250→1000 ms; adiciona regras Git para referências antigas.
+
+DATA: 12/10/2026 16:38:01 (UTC−03:00)
+COMMIT: 85488f26bf16e0fa267cb6cb81c719fb2f9333c0
+MENSAGEM ORIGINAL: project overhaul. hardware integrated.
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Promove V4.1 à raiz, remove V4 anterior e cria firmware/serial/testes de integração. Navegação muda esquerda=a/direita=d para esquerda=d/direita=a, adiciona associação de alvo, histerese e parada persistente por borda inferior da caixa. GUI padrão; remove opções headless recém-incluídas, mantém --no-display. Dependências simplificadas.
+
+DATA: 12/10/2026 18:30:02 (UTC−03:00)
+COMMIT: 45ae6644c3791bda1dcd179bcff963ccdd896479
+MENSAGEM ORIGINAL: .
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Adiciona OLED SSD1306, UART2 RX16/TX17 padrão e perfil USB no PlatformIO; testes OLED sem PWM. Simplifica captura para referência do frame sem cópia; ajusta desempate e histerese, labels e documentação de bancada.
+
+DATA: 13/10/2026 19:19:50 (UTC−03:00)
+COMMIT: 559a1145406466eb34e1ddf795c297dad6658379
+MENSAGEM ORIGINAL: deleted repo aquamonitor
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Remove somente gitlink aquamonitor; os pesos já copiados em models permanecem.
+
+DATA: 13/10/2026 21:04:03 (UTC−03:00)
+COMMIT: 09cfc0ed440e77fc1fbad925d1b75424cdaa2ff0
+MENSAGEM ORIGINAL: reorganização da documentação
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Reorganiza README e cria docs/testes.md; sem mudança de código de execução.
+
+DATA: 13/10/2026 21:52:45 (UTC−03:00)
+COMMIT: 099b04bb5f6459725cc9176abe99cf547569c19a
+MENSAGEM ORIGINAL: corrigido bug causado pela versão desatualizada do platformio
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Somente docs/testes.md: instruções de PlatformIO 6.1.19/venv/hash -r e diagnóstico de UART/READY. O diff não corrige firmware nem registra atualização versionada da ferramenta.
+
+DATA: 13/10/2026 22:35:54 (UTC−03:00)
+COMMIT: f6ffba5f7cfc9be415cf96814779c73361a91c42
+MENSAGEM ORIGINAL: adicionado 'estudo_do_codigo'
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Acrescenta estudo_do_codigo.md e referência no README; mudança documental.
+
+DATA: 15/10/2026 15:13:49 (UTC−03:00)
+COMMIT: f914f7503fc2363efc692ccd40dc37e69da567d5
+MENSAGEM ORIGINAL: implementada ativação com sensor ultrassonico
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: HC-SR04 com janela de autorização de 30 s por proximidade <15 cm; protocolo CONFIG e INICIAR, modo OLED/motores/sensor escolhido pelo Python. Classe cell phone adicionada; região inferior passa de ymax para centro da caixa, associação exige mesma classe; documentação/diagramas/testes ampliados.
+
+DATA: 16/10/2026 15:32:12 (UTC−03:00)
+COMMIT: 55b17daa55334624fde36521026ddd3c9e3f31bf
+MENSAGEM ORIGINAL: command permanence during c.v stutter
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Permanência do comando por 1000 ms após primeira perda visual, prazo não renovado por perdas consecutivas e expiração no loop entre inferências. Melhora fechamento da câmera, valida NaN/Inf/classes/config, limita resposta serial a 128 bytes e trata cleanup. OLED e ultrassônico iniciam no boot e medem em todos os modos; display mostra distância.
+
+DATA: 23/10/2026 16:07:38 (UTC−03:00)
+COMMIT: 6a67872e45ae29ff9a9d1f04d41668b92bd5507a
+MENSAGEM ORIGINAL: pinagem atualizada
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Pinagem alterada no firmware e testes: TRIG18→19, ECHO19→21 e ESC2 14→13; documentação atualizada. ESC1=12, OLED SDA23/SCL22 e UART16/17 preservados.
+
+DATA: 23/10/2026 16:22:16 (UTC−03:00)
+COMMIT: c94e55ec2708decf1a3e0790bc8efed2e1f7cac1
+MENSAGEM ORIGINAL: ajustada a pinagem no código
+AUTOR: Vy0618; responsável pelo commit: Vy0618
+ALTERAÇÕES VERIFICADAS: Somente docs/testes.md: reforça pinagem e GND UART. A mudança de código sugerida pela mensagem ocorreu no commit anterior.
+
+
+VISÃO COMPUTACIONAL, CÂMERA E NAVEGAÇÃO
+
+O primeiro detector OpenCV versionado na cadeia antiga entra em 11/05, no commit 0a3dcfb. Usa SSD MobileNet V3, entrada 320×320, confiança 0,45, NMS 0,2 e alvo bottle. Os modelos estavam fora do repositório em /home/eco/Desktop/Object_Detection_Files. Falta import cv2 no experimento; a adição da tecla q não corrige essa ausência. Em 21/05, servidorUnificado.py integra navegação por maior caixa e três faixas ao servidor manual. Em 23/07, 86eb16f remove a segunda inferência da variante Servidor 1.0, usando os objetos calculados na captura.
+
+A comparação de julho com a importação de outubro exige cuidado: 12 dos 14 arquivos de V3 têm blobs idênticos; ControleESP32.ino difere no blob, mas suas linhas normalizadas são iguais. Servidor 1.0/servidor.py tem diferenças funcionais: o arquivo importado em outubro corresponde à implementação monolítica de 517 linhas, e não simplesmente ao servidor de julho de 301 linhas com template e inferência reutilizada. Assim, não se deve afirmar que todas as correções de julho foram preservadas na importação.
+
+O V4 importado em outubro contém um conjunto de pesos de 29.185.289 bytes e grafo textual MobileNet V3. A auditoria histórica documenta que os pesos contêm nomes MobileNet V1 e que a combinação falha com Const input blob for weights not found. Em 12/10 surge outro conjunto no V4.1, proveniente do AquaMonitor, com pesos de 13.448.454 bytes e 91 posições de labels. É substituição do conjunto utilizado pelo novo pipeline; não há evidência de treinamento próprio ou de migração para YOLO. Os três artefatos copiados em V4.1 mantêm seus blobs durante a promoção à raiz. Os SHA256 atuais coincidem com models/origem.json:
+
+- Pesos: 3c95e720eed1bbaf264048ab8fbe6765e5b3a64fafe64020cd53ecd14ccf2c58.
+- Grafo: 1b66fa9884a25a1a12ab688b8c5fc4a41143d2111d89f7cd1c1536707a3ef1f6.
+- Labels: 8925173e1b0aabfaefda27de2bb908233bb8fb6e7582323d72988e4be15a5f0b.
+
+A origem AquaMonitor é declarada no manifesto. O gitlink incluído aponta para 4d305bccbc7886e95d88838649def548cc2e9d50; o histórico interno desse projeto não foi recuperado como parte da cadeia EcoFlutuador. A exclusão do gitlink em 13/10 não remove os modelos copiados.
+
+O V4 modular tem implementação Picamera2/CSI e OpenCV USB, com padrão V4L2 320×240/10 FPS no commit de importação. O V4.1 concentra-se na webcam USB, captura em thread e retenção somente do frame mais recente. O limite de FPS aplicado ao consumidor já está no primeiro commit V4.1; o relatório e logs locais associam trabalho a 09/10. Não há commit de 09/10 nessa cadeia: registrar desenvolvimento relatado nessa data separadamente da inclusão no Git em 12/10. A promoção à raiz remove o backend Picamera2 da implementação ativa; não foi confirmada operação física CSI nesta auditoria.
+
+Em 12/10 o acompanhamento passa a associar caixas por distância/IoU, aplicar histerese e manter parada após aproximação. O mapeamento esquerda/direita é invertido nessa mesma mudança para esquerda=d, meio=w, direita=a. Em 15/10 a regra da faixa inferior muda: deixa de considerar a borda inferior ymax e passa a considerar o centro vertical. Isso altera quando a parada é disparada. A adição de cell phone permite demonstração com outra classe e preserva a contagem exclusiva de bottle. Em 16/10 a permanência mantém o comando anterior por até 1000 ms desde a primeira inferência sem alvo; não é tolerância universal a travamentos. A expiração no loop Python depende de o loop voltar a executar, e a ESP32 conserva seu timeout independente.
+
+O perfil atual solicita 640×480, 30 FPS, entrada DNN 320×320, confiança 0,45 e intervalo mínimo de inferência 300 ms. Esses valores são configuração, não medição de desempenho. A rotação JSONL limita os arquivos a aproximadamente 2 MB e três cópias anteriores. O terminal usa timestamp sem minutos no formato AAAA-MM-DD-HH-SS; a cronologia deve priorizar o timestamp ISO do JSONL ou do Git.
+
+FIRMWARE, SENSORES E PROTEÇÃO DE MOVIMENTO
+
+A história mostra três interfaces principais: controle HTTP/Wi-Fi embarcado em abril; controle serial USB com ACK em maio; UART2 dedicada à Raspberry e perfil USB de bancada em outubro. Em maio o firmware usa ESP32Servo e rampa bloqueante. Na base ativa criada em 12/10, o PWM passa a LEDC com compatibilidade Arduino-ESP32 2.x/3.x, 50 Hz, 16 bits, 1000–2000 µs, potência inicial 30%, armamento 3 s e rampa não bloqueante de 15 µs por passo de 20 ms. A parada lógica aplica imediatamente o pulso mínimo; isso não comprova distância/tempo de parada mecânica da embarcação.
+
+A segurança também pertence a gerações diferentes. O V4 modular importado possui lease de 1500 ms e heartbeat HB:<comando>, com parada e validação do movimento vigente. O firmware ativo posterior usa CAPS:HEARTBEAT, h/HB_OK e timeout de 3000 ms. Ambos os mecanismos verificam passagem de tempo no loop; não equivalem a um watchdog de hardware/tarefa capaz de recuperar qualquer travamento. No Python ativo, a renovação ocorre por decisões recentes, sem thread independente que continue mantendo movimento durante falha da inferência.
+
+O HC-SR04 não foi introduzido pela primeira vez no projeto em 15/10. O ultrassônico já aparece no sketch de março e no V4 modular. O que surge em 15/10 é a integração específica da base ativa com CONFIG:OLED/MOTORES:0/1 e INICIAR:0/1: proximidade válida abaixo de 15 cm libera uma janela de 30 s, com encerramento local e parada. No V4 anterior, o sensor usava TRIG33/ECHO32, mediana de cinco amostras, calibração de baseline e histerese relativa. Esse algoritmo não foi integralmente transportado para o firmware simplificado.
+
+| Componente | Evidência no V4 modular importado | Situação da base ativa até 23/10 |
+| HC-SR04 | Filtro, baseline, START, período 100 ms | Medição por pulseIn com limite 30 ms; autorização opcional; TRIG19/ECHO21 |
+| GPS GY-NEO6MV2 | TinyGPSPlus, UART1 RX27/TX26, campos de fix; desabilitado | Sem integração no firmware ativo |
+| pH4502C | ADC34, raw/tensão e conversão condicionada à calibração; desabilitado | Sem leitura ativa |
+| Turbidez ST100 | ADC35, raw/tensão; NTU condicionado à calibração; desabilitado | Sem leitura ativa |
+| Temperatura DS18B20 | Documentado como ausente, sem OneWire/DallasTemperature | Sem integração encontrada |
+| Sensor da rede HW-870 | GPIO25, debounce, passagem e suspeita de cheio | Não transportado para a base ativa |
+| OLED SSD1306 | Não integra aquele firmware V4 | Acrescentado em 12/10; distância desde 16/10; SDA23/SCL22 |
+| ESCs | ESP32Servo, GPIO12/14 e motores desabilitados por padrão | LEDC; GPIO12/13 após 23/10; modo escolhido pelo Python |
+
+A pinagem anterior ao commit 6a67872 era TRIG18/ECHO19/ESC2=14 na base ativa. O diff de 23/10 muda esses três valores; OLED SDA23/SCL22 e UART RX16/TX17 permanecem. Os SVGs de hardware foram introduzidos em 15/10 e alterados em 16/10, mas não figuram entre os arquivos alterados em 23/10. Portanto, uma imagem isolada não deve substituir as constantes do firmware na reconstrução da pinagem final. A documentação atual ainda apresenta ligações físicas a confirmar. Não há prova versionada de montagem mecânica nova, calibração física, coleta efetiva ou ensaio de navegação.
+
+BACKEND, TELEMETRIA E FAUNA
+
+Os servidores de maio oferecem controle, streaming MJPEG e registros de comandos. A separação de HTML/CSS/JS ocorre em julho, com correções de template em 25/07. A separação do backend em módulos Python ocorre na variante v4.5 em 08/10. São etapas diferentes de modularização.
+
+O V4 importado em 08/10 inclui Flask/Werkzeug, dashboard local e endpoints /health, /status, /detections, /decision, /telemetry, /history e /diagnostics. A telemetria ambiental é emitida pela ESP32 em TEL JSON, com schema e versões. O histórico é limitado em RAM; não é banco persistente ou buffer offline. server_url=null é configuração reservada; não há transporte remoto implementado demonstrado por esse conjunto.
+
+A política DecisionEngine do V4 aceita classes de lixo e fauna, com STOP prioritário para fish/turtle/bird. Isso comprova lógica de decisão, não a capacidade do modelo de reconhecer todas essas classes: o conjunto legado é incompatível e a cobertura de labels não atende automaticamente a lista proposta. Não há evidência de treinamento/avaliação específica de fauna. A implementação ativa desde 12/10 deixa de incluir essa política, o dashboard, o servidor HTTP e a telemetria ambiental, concentrando-se no reconhecimento local, decisões, serial e JSONL. O programa atual não deve ser descrito como tendo todos os recursos do antigo V4.
+
+A interface Labdisc incluída em julho é um iframe de site externo; não comprova integração de aquisição ambiental. Os arquivos GrandPrix tratam de rolamentos/magnetômetro e incluem dados simulados. O texto fixo de “94.7%” em console não mede precisão do EcoFlutuador.
+
+ARQUITETURA, DEPENDÊNCIAS E EVIDÊNCIAS DE TESTES
+
+A importação de outubro usa Flask, Werkzeug, PyYAML, pyserial, NumPy e opencv-python-headless, com constraints para lock. Em 12/10 a base ativa reduz o runtime a opencv-python>=4.8,<5, numpy>=1.24,<3 e pyserial>=3.5,<4. O lock registra OpenCV 4.14.0.94, NumPy 2.5.3 e pyserial 3.5; o requirements principal deixa de referenciar automaticamente o lock. Flask/PyYAML e a configuração YAML deixam o runtime ativo. As dependências antigas são preservadas em docs/historico-raiz.
+
+O V4 importado já contém auditoria, logs de testes e snapshot original. V4/docs/AUDITORIA_V4.md tem data textual 16/09/2026, embora entre no Git em 08/10; o documento informa não haver Git utilizável na cópia auditada. O tar original tem 40 entradas; firmware, sensores, decisão e câmera diferem da versão consolidada importada. Isso permite comparar estados anteriores, mas não datar individualmente cada edição pré-importação.
+
+Evidências históricas registram 58 testes de baseline e 88 finais no V4; final-tests.txt contém “Ran 88 tests ... OK”. O relatório consolidado descreve lease, framing longo, wrap de millis, reconexão, mocks, API e benchmark. O benchmark foi sintético, curto e sem DNN real: redução de logs e amostras de CPU não comprovam ganho de FPS/energia na Raspberry. A compilação alvo do V4 antigo não estava validada naquele relatório.
+
+Os documentos da base ativa registram etapas de 9, 17 e 37 testes, além de compilação PlatformIO e memória. São relatos de etapas diferentes, não um resultado único da revisão atual. A árvore final contém 76 métodos test_* nos sete arquivos Python, cobrindo câmera, configuração, detector, serial, navegação, visualização e executores C++/OLED. Contagem estática não significa 76 testes executados: não rodei a suíte nesta auditoria. Os testes nativos usam stubs e podem exercitar APIs 2.x/3.x; não comprovam comportamento elétrico dos GPIOs.
+
+Os guias atuais mantêm validações de tela, motores e desempenho Raspberry como pendentes. A existência de código de teste, binário local ou mensagem CMD_OK não comprova upload, acionamento real, coleta física nem qualidade do reconhecimento. Não foram encontradas métricas de precisão em dataset rotulado ou registros suficientes para atribuir ensaios físicos a datas específicas.
+
+BRANCHES, MERGES E ESTADO LOCAL
+
+Há somente main e a referência local remota origin/main. main aponta para c94e55e, e origin/main para 55b17da: dois commits locais à frente da referência remota armazenada. Não foi feito fetch; esse dado não afirma o estado atual do servidor remoto. O reflog mostra master renomeada para main em 08/10 às 21:53:48. O merge 7be62a3 une duas raízes independentes de outubro. Não há tags; o clone não é shallow. A cadeia antiga não tem merge com main e sua antiga branch não pode ser determinada pelos metadados disponíveis.
+
+Existe uma referência técnica refs/codex/turn-diffs/checkpoints/... apontando para uma árvore, não um commit; a comparação com HEAD não produziu diferenças. Não foi contada como commit ou versão lançada.
+
+Ao término da investigação original, antes da criação deste diario.txt, o working tree e o índice estavam limpos: git diff e git diff --cached vazios; nenhum arquivo não rastreado e não ignorado informado por git status. Há arquivos ignorados locais em .venv/, logs/, firmware/ControleESP32/.pio/, __pycache__/, detection/__pycache__/ e tests/__pycache__/. São evidências locais separadas do código commitado.
+
+logs/recognition.jsonl.1 tem 1.999.718 bytes e timestamps de 09/10/2026 15:10:11.750577 a 16/10/2026 15:13:07.695835, em UTC−03. O arquivo recognition.jsonl tem 17.388 bytes e timestamps de 16/10 15:13:08.018981 a 15:13:22.733629. O primeiro contém 54 eventos de câmera, 26 de serial, 20 de ultrassônico e oito de erro; o arquivo atual contém 48 reconhecimentos e duas expirações de permanência. Os logs demonstram registros de execução e falha com seus timestamps, mas não identificam por si só commit exato ou realidade física de todos os componentes. Resumo estruturado em resumo-logs-locais.json.
+
+CORREÇÕES NECESSÁRIAS AO REDIGIR O DIÁRIO OFICIAL
+
+- V1/V2 são identificáveis na cadeia antiga encontrada por fsck; seria incorreto concluir sua ausência usando apenas as branches atuais.
+- Datas de criação de commits devem ser chamadas de datas de registro no Git. Importações não datam a criação original do código.
+- O V4 de março e o V4 modular de outubro têm arquiteturas distintas. MobileNet V1/V3 identifica também famílias de modelo, não versões do robô.
+- O commit de 24/03 às 16:12 remove comentários; não corrige as inconsistências do V4 criado naquele dia.
+- A renomeação V3.1→V3.2 em 02/04 às 08:24:50 não modifica a lógica. Já o commit das 09:16:23 muda parâmetros, pinagem e aproximação.
+- A mensagem de dcb0375 diz adição, mas o diff mostra renomeação exata. f3f1dd1 é um commit sem alteração de árvore.
+- A reorganização de 19/05 remove e depois reinsere os arquivos em outras pastas. Não deve ser narrada como remoção definitiva de todo o legado.
+- A separação do servidor em julho começa com HTML/JS/CSS; a nota isolada 6580ffe não implementa a modularização Python de outubro.
+- 099b04b, “corrigido bug ... platformio”, modifica apenas documentação. Atualização do ambiente pode ter ocorrido localmente, mas não é uma correção de código comprovada pelo diff.
+- c94e55e, “ajustada a pinagem no código”, também modifica apenas documentação. A alteração das constantes está em 6a67872.
+- A integração ultrassônica de outubro reutiliza um recurso já existente em gerações anteriores. Não é a estreia do sensor no projeto.
+- A versão ativa não reúne todos os sensores, fauna, API e dashboard do V4 anterior; houve redução do escopo funcional.
+- Declarações antigas de sucesso de coleta e precisão simulada não devem ser convertidas em resultados experimentais.
+
+MATERIAL VERIFICÁVEL E REPRODUÇÃO
+
+Os nomes de arquivos citados na cronologia são relativos às árvores de cada commit. Arquivos removidos continuam consultáveis com git show HASH:caminho. Os hashes completos estão transcritos em cada registro e na planilha auxiliar. Exemplos de leitura, sem checkout ou recuperação de branches:
+
+git show ce27963117d52bbd965b32aae27925735a24abe3:programacaoEcoFlutuador/controleEcoFlutuadorV1
+git show cf94267dd2b2a2396376b78f49b7b8089774c2d6:programacaoEcoFlutuador/controleEcoFlutuadorV2
+git log 5a923771a41f719d0799af69904c45e83d6aab00 --reverse --date=iso-strict --name-status
+git show 6a67872 -- firmware/ControleESP32/ControleESP32.ino
+git show c94e55e -- docs/testes.md
+
+Artefatos de apoio nesta pasta:
+
+- commits-todos.csv: 74 commits, duas datas, autores, committers, pais e mensagens originais.
+- historico-completo.txt e alteracoes-name-status.txt: estatísticas e inventário da cadeia das referências atuais.
+- historico-marco-julho-name-status.txt: inventário exato da cadeia antiga.
+- diffs-completos.patch: patches da cadeia atual, incluindo arquivos adicionados/removidos e versões históricas dos documentos.
+- diffs-marco-julho-rede-omitida.patch: patches antigos, com linhas de configuração de rede omitidas e perfil NetworkManager excluído da exportação.
+- branches-e-reflog.txt: referências e operações locais registradas.
+- objetos-nao-alcancaveis.txt e commits-nao-alcancaveis.tsv: descoberta dos 57 commits antigos e demais objetos preservados.
+- estado-local.txt e resumo-logs-locais.json: estado do workspace e metadados dos logs ignorados.
+
+A auditoria cobre o material recuperável nesta cópia. Não atribui trabalho a intervalos sem evidência, não presume vínculo Git entre as duas gerações e não certifica testes físicos não registrados.
