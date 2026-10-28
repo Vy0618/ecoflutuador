@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from esp32_link import Esp32Link
+from ecoflutuador.esp32_link import Esp32Link
 
 
 def startup_messages(output="OLED", ultrasonic=False):
@@ -95,7 +95,7 @@ class Esp32LinkTests(unittest.TestCase):
                 device.configuration_ready = False
             clock = itertools.count(step=.1)
             with self.subTest(mismatch=mismatch), patch("serial.Serial", return_value=device), \
-                 patch("esp32_link.time.monotonic", side_effect=lambda: next(clock)):
+                 patch("ecoflutuador.esp32_link.time.monotonic", side_effect=lambda: next(clock)):
                 with self.assertRaises(RuntimeError if mismatch else TimeoutError):
                     Esp32Link("test-port")
             self.assertTrue(device.closed)
@@ -225,7 +225,7 @@ class Esp32LinkTests(unittest.TestCase):
     def test_state_can_expire_while_waiting_for_heartbeat_ack(self):
         device = FakeSerial()
         with patch("serial.Serial", return_value=device), \
-             patch("esp32_link.time.monotonic", return_value=0) as clock:
+             patch("ecoflutuador.esp32_link.time.monotonic", return_value=0) as clock:
             link = Esp32Link("test-port")
             link.send("w")
             original_write = device.write
@@ -260,7 +260,7 @@ class Esp32LinkTests(unittest.TestCase):
         device = FakeSerial(ready=False)
         clock = itertools.count(step=.1)
         with patch("serial.Serial", return_value=device), \
-             patch("esp32_link.time.monotonic", side_effect=lambda: next(clock)):
+             patch("ecoflutuador.esp32_link.time.monotonic", side_effect=lambda: next(clock)):
             with self.assertRaises(TimeoutError):
                 Esp32Link("test-port")
         self.assertEqual(device.messages, [b"?\n", b"s\n"])
@@ -270,7 +270,7 @@ class Esp32LinkTests(unittest.TestCase):
         device = FakeSerial()
         clock = itertools.count(step=.1)
         with patch("serial.Serial", return_value=device), \
-             patch("esp32_link.time.monotonic", side_effect=lambda: next(clock)):
+             patch("ecoflutuador.esp32_link.time.monotonic", side_effect=lambda: next(clock)):
             link = Esp32Link("test-port")
             device.acknowledge = False
             with self.assertRaises(TimeoutError):
@@ -286,7 +286,7 @@ class Esp32LinkTests(unittest.TestCase):
     def test_heartbeat_refreshes_without_repeating_motor_command(self):
         device = FakeSerial()
         with patch("serial.Serial", return_value=device), \
-             patch("esp32_link.time.monotonic", return_value=0) as clock:
+             patch("ecoflutuador.esp32_link.time.monotonic", return_value=0) as clock:
             link = Esp32Link("test-port")
             self.assertTrue(link.send("w"))
             clock.return_value = .9
@@ -302,7 +302,7 @@ class Esp32LinkTests(unittest.TestCase):
     def test_firmware_without_heartbeat_uses_limited_command_renewal(self):
         device = FakeSerial(heartbeat=False)
         with patch("serial.Serial", return_value=device), \
-             patch("esp32_link.time.monotonic", return_value=0) as clock:
+             patch("ecoflutuador.esp32_link.time.monotonic", return_value=0) as clock:
             link = Esp32Link("test-port")
             link.send("w")
             clock.return_value = .9

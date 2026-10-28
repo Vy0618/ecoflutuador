@@ -9,20 +9,21 @@ A ESP32-WROOM-32 recebe esse comando e controla os motores brushless por ESCs.
 Para conferir a interpretação sem motores, o firmware pode exibir os comandos
 em uma tela OLED SSD1306.
 
-O V4.1 é o projeto principal e está na raiz do repositório. Na montagem final,
+O V4.1 é o projeto principal, iniciado por `object-ident.py` na raiz do repositório.
+Os módulos Python ficam no pacote `ecoflutuador/`. Na montagem final,
 a câmera USB fica conectada à Raspberry Pi 5. O teste com OLED funciona
 continuamente, sem precisar do HC-SR04. No modo de motores, o padrão aguarda
 uma distância válida menor que 15 cm para liberar uma janela de 30 segundos.
 Sem serial, o reconhecimento continua ativo normalmente.
 
 As instruções de instalação, setup e testes estão em
-[docs/testes.md](docs/testes.md).
+[Setup e testes](#setup-e-testes--ecoflutuador-v41).
 
 O conteúdo completo desse guia também está incorporado abaixo, em
 [Setup e testes](#setup-e-testes--ecoflutuador-v41), sem cortes.
 
 Para estudar os arquivos e a comunicação serial, consulte o
-[guia de estudo do código](docs/estudo_do_codigo.md).
+[guia de estudo do código](docs/guias/estudo_do_codigo.md).
 
 ## Bibliotecas utilizadas
 
@@ -77,18 +78,53 @@ dos ESCs e a parada por timeout independentemente da execução do Python.
 |---|---|
 | `object-ident.py` | Entrada, argumentos, ciclo principal, desenho da imagem e encerramento |
 | `config.py` / `config.json` | Leitura, validação e parâmetros do reconhecimento |
-| `camera.py` | Webcam USB, captura do frame recente e controle de FPS |
-| `image_processing.py` | Redução proporcional e restauração das coordenadas das caixas |
-| `detection/ssd_mobilenet_detector.py` | Inferência SSD, filtro de confiança e classe |
-| `detection/types.py` | Classe, confiança, bounding box e centro da detecção |
-| `regions.py` | Divisórias, validação das caixas e associação geométrica do alvo |
-| `navigation.py` | Seleção, acompanhamento, histerese e decisão de movimento/parada |
-| `esp32_link.py` | Consulta, envio, confirmação, heartbeat e parada pela serial |
-| `command_log.py` | Blocos no terminal e registros JSONL com rotação |
+| `ecoflutuador/camera.py` | Webcam USB, captura do frame recente e controle de FPS |
+| `ecoflutuador/image_processing.py` | Redução proporcional e restauração das coordenadas das caixas |
+| `ecoflutuador/detection/ssd_mobilenet_detector.py` | Inferência SSD, filtro de confiança e classe |
+| `ecoflutuador/detection/types.py` | Classe, confiança, bounding box e centro da detecção |
+| `ecoflutuador/regions.py` | Divisórias, validação das caixas e associação geométrica do alvo |
+| `ecoflutuador/navigation.py` | Seleção, acompanhamento, histerese e decisão de movimento/parada |
+| `ecoflutuador/esp32_link.py` | Consulta, envio, confirmação, heartbeat e parada pela serial |
+| `ecoflutuador/command_log.py` | Blocos no terminal e registros JSONL com rotação |
 | `models/` | Pesos `.pb`, grafo `.pbtxt`, nomes COCO e registro de origem |
 | `firmware/ControleESP32/` | Firmware Arduino e configuração do PlatformIO |
 | `tests/` | Testes Python e simulação C++ do firmware |
-| `docs/` | Guias de hardware e registros das revisões |
+| `docs/` | Guia de estudo em `guias/` e diário da auditoria em `historico/` |
+
+### Organização das pastas
+
+```text
+.
+├── object-ident.py             # Entrada do programa
+├── config.py                   # Leitura e validação da configuração
+├── config.json                 # Parâmetros e caminhos dos modelos
+├── README.md
+├── requirements.txt
+├── requirements-lock.txt
+├── ecoflutuador/                # Módulos da aplicação
+│   ├── __init__.py
+│   ├── camera.py
+│   ├── command_log.py
+│   ├── esp32_link.py
+│   ├── image_processing.py
+│   ├── navigation.py
+│   ├── regions.py
+│   └── detection/
+├── docs/
+│   ├── guias/estudo_do_codigo.md
+│   └── historico/diario.txt
+├── firmware/ControleESP32/
+├── models/
+├── tests/
+└── logs/                       # Gerados durante a execução
+```
+
+Os comandos de execução continuam usando `object-ident.py` na raiz. Para importar
+os componentes em outros scripts, use `ecoflutuador`, por exemplo
+`from ecoflutuador.esp32_link import Esp32Link`.
+Os caminhos dos modelos continuam relativos a `config.json`; a configuração e o
+log padrão são localizados a partir dos arquivos do projeto, mesmo ao iniciar
+o programa de outro diretório.
 
 O reconhecimento executa com os módulos e modelos locais. A origem no AquaMonitor
 e as referências às versões anteriores estão registradas em `models/origem.json`
@@ -152,7 +188,7 @@ A seleção inicial prioriza a maior área, depois confiança e coordenadas para
 desempate. Depois o alvo é associado por sobreposição das caixas ou distância
 entre centros. A histerese evita trocas excessivas de direção nas divisórias.
 Uma perda breve mantém o último movimento por até 1000 ms desde a primeira
-inferência que identifica a perda. A constante `COMMAND_HOLD_MS` em `navigation.py` define esse prazo;
+inferência que identifica a perda. A constante `COMMAND_HOLD_MS` em `ecoflutuador/navigation.py` define esse prazo;
 `0` desativa a permanência. A referência só é liberada após o prazo e o número
 configurado de inferências ausentes. Ao reencontrar o alvo, a contagem é zerada;
 uma perda posterior inicia outro prazo. Ausências consecutivas não o reiniciam.
@@ -216,7 +252,7 @@ e comando. O arquivo JSONL guarda os dados completos, incluindo caixa, centro,
 confiança e estado da aproximação, com rotação de aproximadamente 2 MB e três
 arquivos anteriores. A quantidade conta somente `bottle` no quadro, sem confirmar
 coleta física. Os exemplos de execução e leitura dos logs estão no
-[guia de testes](docs/testes.md#logs-e-acompanhamento).
+[guia de testes](#logs-e-acompanhamento).
 
 ## Hardware utilizado
 
@@ -262,7 +298,7 @@ Raspberry Pi–ESP32–OLED. Ele distingue a numeração BCM dos pinos físicos 
 Raspberry e documenta a ligação do OLED com SCL22/SDA23.
 
 Os procedimentos de instalação, gravação e execução continuam no
-[guia de testes](docs/testes.md).
+[guia de testes](#setup-e-testes--ecoflutuador-v41).
 
 ## Setup e testes — EcoFlutuador V4.1
 
@@ -379,12 +415,50 @@ Sem serial, a câmera e a detecção também funcionam continuamente.
 
 ### Instalação
 
-#### Programa Python
+#### 1. Preparar o computador
 
-No Linux, na raiz do projeto:
+Instale o Git e o Python 3 com suporte a ambientes virtuais. O ambiente local
+validado usa Python 3.12.3. Para testar o reconhecimento ao vivo, conecte uma
+câmera USB; a ESP32 só é necessária para os testes de comunicação e controle.
+
+No Ubuntu/Debian ou Raspberry Pi OS:
+
+```bash
+sudo apt update
+sudo apt install -y git python3 python3-venv python3-pip libgl1 libglib2.0-0
+git --version
+python3 --version
+```
+
+No Windows, instale o Git e o Python 3.12, incluindo o launcher `py`, e abra
+um novo PowerShell. Confira as instalações:
+
+```powershell
+git --version
+py --version
+```
+
+#### 2. Clonar o repositório
+
+No terminal, escolha a pasta onde deseja guardar o projeto e execute:
+
+```bash
+git clone https://github.com/Vy0618/ecoflutuador.git
+cd ecoflutuador
+```
+
+Os comandos acima também funcionam no PowerShell. Execute os próximos passos
+nessa pasta, que contém `object-ident.py`, `config.json` e `requirements.txt`.
+Os arquivos do modelo já estão versionados em `models/`; não é necessário
+baixar os pesos separadamente nem instalar o pacote Python TensorFlow.
+
+#### 3. Criar o ambiente e instalar as dependências
+
+No Linux ou na Raspberry Pi:
 
 ```bash
 python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check
 ```
@@ -393,15 +467,44 @@ No Windows, em PowerShell:
 
 ```powershell
 py -m venv .venv
+.venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe object-ident.py
+.venv\Scripts\python.exe -m pip check
 ```
+
+Crie um ambiente novo em cada máquina; não copie a pasta `.venv` de outro
+computador. Os comandos usam o interpretador do ambiente diretamente, sem
+precisar ativá-lo.
 
 Nos demais comandos deste guia, o Windows usa `.venv\Scripts\python.exe` no
 lugar de `.venv/bin/python`, e uma porta como `COM3` no lugar de `/dev/ttyUSB0`.
 
+#### 4. Fazer a primeira execução
+
+Com a câmera conectada, execute no Linux ou na Raspberry Pi:
+
+```bash
+.venv/bin/python object-ident.py --duration 20
+```
+
+No Windows:
+
+```powershell
+.venv\Scripts\python.exe object-ident.py --duration 20
+```
+
+O programa abre o vídeo e executa o reconhecimento por 20 segundos, sem
+precisar da ESP32. Se houver mais de uma câmera, acrescente `--camera-index 1`
+para testar outro dispositivo. Em uma sessão sem interface gráfica, acrescente
+`--no-display`; a câmera continua necessária.
+
 A visualização precisa do OpenCV com suporte gráfico e de uma sessão gráfica
 acessível. O mesmo `opencv-python` atende aos modos com vídeo e headless.
+
+Para continuar com a placa, siga a instalação das ferramentas abaixo e o
+[teste no computador com ESP32](#teste-no-computador-com-esp32). Para a montagem
+na Raspberry com UART pelos GPIOs, siga o
+[setup na Raspberry Pi 5](#setup-na-raspberry-pi-5-com-esp32).
 
 #### Firmware e ferramentas
 
@@ -782,7 +885,7 @@ Antes da câmera com comandos, consulte a ESP32 e confirme somente a parada:
 
 ```bash
 .venv/bin/python - <<'PY'
-from esp32_link import Esp32Link
+from ecoflutuador.esp32_link import Esp32Link
 
 link = Esp32Link('/dev/ttyAMA0')
 try:
@@ -841,7 +944,7 @@ Edite [config.json](config.json) e reinicie o programa para aplicar as mudanças
 | `navigation.target_missing_frames` | `3` | Inferências ausentes para liberar o alvo |
 
 Para ajustar a permanência do comando durante uma perda breve, edite a constante
-em [navigation.py](navigation.py) e reinicie o Python:
+em [navigation.py](ecoflutuador/navigation.py) e reinicie o Python:
 
 ```python
 COMMAND_HOLD_MS = 1000
@@ -1140,8 +1243,8 @@ dos requisitos fornecidos nesta conversa.
 - **Código OLED e requisitos de operação fornecidos nesta conversa:** exemplo
   SSD1306 128×64, regiões de navegação, comandos e montagem Raspberry/ESP32.
 - **Implementação atual:** [config.json](config.json),
-  [object-ident.py](object-ident.py), [navigation.py](navigation.py),
-  [esp32_link.py](esp32_link.py) e
+  [object-ident.py](object-ident.py), [navigation.py](ecoflutuador/navigation.py),
+  [esp32_link.py](ecoflutuador/esp32_link.py) e
   [firmware da ESP32](firmware/ControleESP32/ControleESP32.ino), utilizados para
   conferir os comandos e o comportamento descritos neste guia.
 - **Verificações de software:** [testes locais](tests/) e resultados registrados

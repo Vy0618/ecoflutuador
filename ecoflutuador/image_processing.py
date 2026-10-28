@@ -2,7 +2,7 @@
 
 import cv2
 
-from detection.types import Detection
+from .detection.types import Detection
 
 
 def prepare_frame(frame, settings):

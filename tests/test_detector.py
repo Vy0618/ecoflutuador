@@ -7,8 +7,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from detection.ssd_mobilenet_detector import SsdMobileNetDetector
-from image_processing import prepare_frame, restore_coordinates
+from ecoflutuador.detection.ssd_mobilenet_detector import SsdMobileNetDetector
+from ecoflutuador.image_processing import prepare_frame, restore_coordinates
 
 
 class DetectorTests(unittest.TestCase):

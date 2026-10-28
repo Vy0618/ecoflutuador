@@ -9,14 +9,14 @@ import time
 
 import cv2
 
-from camera import LatestFrameCamera, WebcamConfig
+from ecoflutuador.camera import LatestFrameCamera, WebcamConfig
 from config import CONFIG_FILE, load_config
-from detection.ssd_mobilenet_detector import SsdMobileNetDetector
-from image_processing import prepare_frame, restore_coordinates
-from regions import regions_for_frame
-from command_log import CommandLog
-from navigation import COMMANDS, COMMAND_HOLD_MS, Navigation, record_navigation
-from esp32_link import Esp32Link
+from ecoflutuador.detection.ssd_mobilenet_detector import SsdMobileNetDetector
+from ecoflutuador.image_processing import prepare_frame, restore_coordinates
+from ecoflutuador.regions import regions_for_frame
+from ecoflutuador.command_log import CommandLog
+from ecoflutuador.navigation import COMMANDS, COMMAND_HOLD_MS, Navigation, record_navigation
+from ecoflutuador.esp32_link import Esp32Link
 
 
 WINDOW = "EcoFlutuador - SSD MobileNet V3"

@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from camera import LatestFrameCamera
+from ecoflutuador.camera import LatestFrameCamera
 
 
 class FastCamera:
@@ -60,7 +60,7 @@ class CameraFpsTests(unittest.TestCase):
                 LatestFrameCamera(FastCamera(), target_fps=fps)
 
     def test_close_wakes_a_reader_waiting_for_its_first_frame(self):
-        with patch("camera.Thread"):
+        with patch("ecoflutuador.camera.Thread"):
             device = Mock()
             camera = LatestFrameCamera(device)
         started = Event()

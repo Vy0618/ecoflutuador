@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 import math
 
-from detection.types import Detection
+from .detection.types import Detection
 
 
 @dataclass(frozen=True)

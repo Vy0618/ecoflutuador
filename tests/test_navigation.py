@@ -10,9 +10,9 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from command_log import CommandLog
-from detection.types import Detection
-from navigation import Navigation, record_navigation
+from ecoflutuador.command_log import CommandLog
+from ecoflutuador.detection.types import Detection
+from ecoflutuador.navigation import Navigation, record_navigation
 
 
 def bottle(x, y, size=20):
@@ -22,7 +22,7 @@ def bottle(x, y, size=20):
 
 class NavigationTests(unittest.TestCase):
     def setUp(self):
-        clock = patch("navigation.time.monotonic", return_value=0.0)
+        clock = patch("ecoflutuador.navigation.time.monotonic", return_value=0.0)
         self.clock = clock.start()
         self.addCleanup(clock.stop)
 
@@ -256,7 +256,7 @@ class NavigationTests(unittest.TestCase):
         self.assertEqual(navigation.update([], 640, 480).command, "s")
 
     def test_zero_hold_restores_immediate_stop(self):
-        with patch("navigation.COMMAND_HOLD_MS", 0):
+        with patch("ecoflutuador.navigation.COMMAND_HOLD_MS", 0):
             navigation = Navigation()
             navigation.update([bottle(80, 100)], 640, 480)
             self.assertEqual(navigation.update([], 640, 480).command, "s")

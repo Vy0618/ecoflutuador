@@ -26,25 +26,25 @@
     },
     {
       "source": "aquamonitor/backend/detection/ssd_mobilenet_detector.py",
-      "destination": "detection/ssd_mobilenet_detector.py",
+      "destination": "ecoflutuador/detection/ssd_mobilenet_detector.py",
       "sha256": "a7f3ede594848c007ff39eeb446bbff73e83d1fccb084c09ab787637da33d818",
       "adjustment": "import local"
     },
     {
       "source": "aquamonitor/backend/detection/types.py",
-      "destination": "detection/types.py",
+      "destination": "ecoflutuador/detection/types.py",
       "sha256": "99135baaad821b4ed1cb7d32b7a20875c34521774a3dc0ce76ac84756aae3baa",
       "adjustment": null
     },
     {
       "source": "aquamonitor/backend/camera/webcam_config.py",
-      "destination": "camera.py",
+      "destination": "ecoflutuador/camera.py",
       "sha256": "436aa12fe68482e8a749fc2b78cf7e7f97adf61d7dfb7a99c5b23e1d380891a8",
       "adjustment": null
     },
     {
       "source": "aquamonitor/backend/camera/image_processing.py",
-      "destination": "image_processing.py",
+      "destination": "ecoflutuador/image_processing.py",
       "sha256": "4824f8e79ab013a77a9233a818f94530599538d2d00b07b525aae8e3c0dae65c",
       "adjustment": "import local"
     }

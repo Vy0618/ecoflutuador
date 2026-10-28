@@ -2,8 +2,8 @@
 from dataclasses import dataclass
 import time
 
-from detection.types import Detection
-from regions import match_target, regions_for_frame, target_order, valid_targets
+from .detection.types import Detection
+from .regions import match_target, regions_for_frame, target_order, valid_targets
 
 
 COMMANDS = {"esquerda": "d", "baixo": "s", "meio": "w", "direita": "a"}

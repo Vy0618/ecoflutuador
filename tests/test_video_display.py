@@ -9,8 +9,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from detection.types import Detection
-from esp32_link import Esp32Link
+from ecoflutuador.detection.types import Detection
+from ecoflutuador.esp32_link import Esp32Link
 from test_esp32_link import FakeSerial, startup_messages
 spec = importlib.util.spec_from_file_location("recognition_video", ROOT / "object-ident.py")
 recognition = importlib.util.module_from_spec(spec)

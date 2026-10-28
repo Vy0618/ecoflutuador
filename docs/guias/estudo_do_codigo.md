@@ -3,16 +3,17 @@
 Referência do código revisado em **16/10/2026**. A saída OLED/motores e o uso
 do ultrassônico são escolhidos pelo Python e enviados pela UART. A parada
 na faixa inferior usa o centro da caixa. Os comandos de execução completos
-estão em [testes.md](testes.md).
+estão em [testes.md](../../README.md#setup-e-testes--ecoflutuador-v41).
 
 Este texto foi escrito para quem está aprendendo programação e quer entender
 como os arquivos do projeto trabalham juntos. A leitura acompanha uma imagem
 até a decisão de movimento e, depois, segue a mensagem enviada à ESP32.
 
-A implementação principal está na raiz do repositório. Os links abaixo abrem
+A entrada `object-ident.py` e a configuração ficam na raiz do repositório;
+os módulos da aplicação ficam no pacote `ecoflutuador/`. Os links abaixo abrem
 os arquivos que você pode ler junto com a explicação. As instruções de instalação
-e testes estão em [testes.md](testes.md); a apresentação do projeto está no
-[README](../README.md).
+e testes estão em [testes.md](../../README.md#setup-e-testes--ecoflutuador-v41); a apresentação do projeto está no
+[README](../../README.md).
 
 ## Índice
 
@@ -79,7 +80,7 @@ Alguns termos usados ao longo do guia:
 
 ## 2. `config.json`: os dados que controlam o comportamento
 
-Arquivo: [config.json](../config.json).
+Arquivo: [config.json](../../config.json).
 
 Esse arquivo contém dados. Ele não executa a câmera nem envia mensagens.
 O Python o transforma em um dicionário: uma estrutura de chaves e valores,
@@ -109,7 +110,7 @@ três imagens consecutivas entregues pela câmera.
 
 ## 3. `config.py`: ler, preparar e validar a configuração
 
-Arquivo: [config.py](../config.py).
+Arquivo: [config.py](../../config.py).
 
 A função principal é `load_config()`. Ela recebe o caminho do JSON e devolve
 um dicionário preparado para o restante do programa.
@@ -139,7 +140,7 @@ Várias outras seções continuam obrigatórias.
 
 ## 4. `detection/types.py`: representar uma detecção
 
-Arquivo: [detection/types.py](../detection/types.py).
+Arquivo: [detection/types.py](../../ecoflutuador/detection/types.py).
 
 `Detection` é uma `dataclass`: uma classe criada para reunir dados relacionados.
 Ela guarda três informações:
@@ -172,7 +173,7 @@ cria outra `Detection` com a nova caixa.
 
 ## 5. `camera.py`: abrir a webcam e entregar imagens recentes
 
-Arquivo: [camera.py](../camera.py).
+Arquivo: [camera.py](../../ecoflutuador/camera.py).
 
 ### `WebcamConfig`
 
@@ -220,7 +221,7 @@ esse trabalho sem acrescentar uma thread separada para a inferência.
 
 ## 6. `image_processing.py`: reduzir e restaurar coordenadas
 
-Arquivo: [image_processing.py](../image_processing.py).
+Arquivo: [image_processing.py](../../ecoflutuador/image_processing.py).
 
 `prepare_frame()` reduz uma imagem quando ela ultrapassa os limites configurados.
 A escala é calculada por:
@@ -244,7 +245,7 @@ primeira redução normalmente não é necessária.
 
 ## 7. `detection/ssd_mobilenet_detector.py`: executar o reconhecimento
 
-Arquivo: [detection/ssd_mobilenet_detector.py](../detection/ssd_mobilenet_detector.py).
+Arquivo: [detection/ssd_mobilenet_detector.py](../../ecoflutuador/detection/ssd_mobilenet_detector.py).
 
 ### Inicialização de `SsdMobileNetDetector`
 
@@ -307,7 +308,7 @@ do detector Python; ele não configura o NMS interno do grafo.
 
 ## 8. `regions.py`: geometria e associação entre detecções
 
-Arquivo: [regions.py](../regions.py).
+Arquivo: [regions.py](../../ecoflutuador/regions.py).
 
 `Regions` guarda a largura, a posição da linha inferior e as duas divisórias
 verticais. `regions_for_frame()` calcula esses valores. Em 640×480:
@@ -366,7 +367,7 @@ ambígua.
 
 ## 9. `navigation.py`: decidir e lembrar o que aconteceu
 
-Arquivo: [navigation.py](../navigation.py).
+Arquivo: [navigation.py](../../ecoflutuador/navigation.py).
 
 A decisão precisa conservar informações de uma inferência para a seguinte.
 Por isso, `Navigation` é uma classe com estado, enquanto `NavigationResult`
@@ -446,7 +447,7 @@ Um celular pode ser o alvo e gerar comandos sem incrementar esse campo.
 
 ## 10. `object-ident.py`: coordenar os componentes
 
-Arquivo: [object-ident.py](../object-ident.py).
+Arquivo: [object-ident.py](../../object-ident.py).
 
 Esse arquivo é o ponto de entrada. Ao final, o trecho
 `if __name__ == "__main__":` chama `main()` quando o arquivo é executado como
@@ -594,7 +595,7 @@ sem precisar executar o detector de imagens.
 
 ## 12. `esp32_link.py`: o lado Python da comunicação
 
-Arquivo: [esp32_link.py](../esp32_link.py).
+Arquivo: [esp32_link.py](../../ecoflutuador/esp32_link.py).
 
 `Esp32Link` reúne abertura da porta, consulta, envio, espera de confirmação e
 encerramento. O ciclo principal chama essa classe; os detalhes da comunicação
@@ -814,7 +815,7 @@ para exibição. A confirmação não contém uma medição de rotação do moto
 
 ## 13. `ControleESP32.ino`: o lado que recebe e executa
 
-Arquivo: [ControleESP32.ino](../firmware/ControleESP32/ControleESP32.ino).
+Arquivo: [ControleESP32.ino](../../firmware/ControleESP32/ControleESP32.ino).
 
 Esse programa roda na ESP32. No ambiente Arduino, `setup()` executa uma vez na
 partida e `loop()` é chamado repetidamente. As funções auxiliares são chamadas
@@ -900,7 +901,7 @@ O OLED é inicializado em `setup()`, com `Wire` em **SDA=23 e SCL=22** e endere�
 Esse modo configura os canais ou pinos LEDC conforme a
 versão do core Arduino-ESP32. A ligação confirmada usa SCL22/SDA23;
 veja a tabela de conexões em
-[HARDWARE.md](HARDWARE.md).
+[HARDWARE.md](../../README.md#conexões-dos-cabos).
 
 TRIG no GPIO19 e ECHO no GPIO21 são configurados independentemente do modo.
 O sensor usa um circuito externo cuja tensão do ECHO deve ser compatível com a
@@ -1056,7 +1057,7 @@ microcontrolador por hardware.
 
 ## 14. `platformio.ini`: construir o firmware correto
 
-Arquivo: [platformio.ini](../firmware/ControleESP32/platformio.ini).
+Arquivo: [platformio.ini](../../firmware/ControleESP32/platformio.ini).
 
 Esse arquivo descreve como o PlatformIO deve compilar o projeto: plataforma,
 placa, framework, bibliotecas e arquivos de entrada. `esp32dev` identifica a
@@ -1083,7 +1084,7 @@ de compilação para cada combinação.
 
 ## 15. `command_log.py`: registrar para entender o programa
 
-Arquivo: [command_log.py](../command_log.py).
+Arquivo: [command_log.py](../../ecoflutuador/command_log.py).
 
 `CommandLog` recebe o caminho de um arquivo, cria sua pasta quando necessário
 e prepara um `RotatingFileHandler`. O log registra a execução para permitir
@@ -1120,10 +1121,10 @@ Esses campos permitem observar a decisão. A confirmação serial é tratada por
 
 | Arquivo | Função |
 |---|---|
-| [frozen_inference_graph.pb](../models/frozen_inference_graph.pb) | Modelo TensorFlow congelado em formato binário, com os dados treinados |
-| [ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt](../models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt) | Descrição textual compatível do grafo usado pelo OpenCV |
-| [coco.names](../models/coco.names) | Associação entre IDs e nomes de classes |
-| [origem.json](../models/origem.json) | Registro de origem, caminhos e hashes dos arquivos de referência |
+| [frozen_inference_graph.pb](../../models/frozen_inference_graph.pb) | Modelo TensorFlow congelado em formato binário, com os dados treinados |
+| [ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt](../../models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt) | Descrição textual compatível do grafo usado pelo OpenCV |
+| [coco.names](../../models/coco.names) | Associação entre IDs e nomes de classes |
+| [origem.json](../../models/origem.json) | Registro de origem, caminhos e hashes dos arquivos de referência |
 
 Esses arquivos complementam o código Python. Os cálculos treinados de
 reconhecimento estão no modelo, enquanto o Python prepara a imagem, executa
@@ -1133,7 +1134,7 @@ a rede e interpreta o resultado.
 ciclo de inferência: `load_config()` verifica a existência dos arquivos do
 modelo, mas não lê esse registro para comparar hashes em cada execução.
 
-O arquivo [detection/__init__.py](../detection/__init__.py) está vazio e marca
+O arquivo [detection/__init__.py](../../ecoflutuador/detection/__init__.py) está vazio e marca
 `detection` como um pacote Python convencional. Ele ajuda a organizar os imports;
 a implementação do detector está no outro módulo desse pacote.
 
@@ -1141,11 +1142,11 @@ a implementação do detector está no outro módulo desse pacote.
 
 ### `requirements.txt` e `requirements-lock.txt`
 
-[requirements.txt](../requirements.txt) lista OpenCV, NumPy e pyserial com
+[requirements.txt](../../requirements.txt) lista OpenCV, NumPy e pyserial com
 intervalos de versões. O pip usa esse arquivo para instalar as dependências.
 Os módulos da biblioteca padrão do Python já acompanham o interpretador.
 
-[requirements-lock.txt](../requirements-lock.txt) registra as versões exatas
+[requirements-lock.txt](../../requirements-lock.txt) registra as versões exatas
 do ambiente local. A lista descreve a preparação do ambiente; sua presença não
 faz o programa instalar pacotes automaticamente quando você executa Python.
 
@@ -1156,29 +1157,29 @@ serial nem o código que roda na ESP32.
 
 ### `.gitignore` e `.gitattributes`
 
-[.gitignore](../.gitignore) informa ao Git quais arquivos gerados devem ficar
+[.gitignore](../../.gitignore) informa ao Git quais arquivos gerados devem ficar
 fora do versionamento, como ambientes, logs e saídas de compilação. Ignorar
 um caminho não apaga os arquivos desse caminho.
 
-[.gitattributes](../.gitattributes) define tratamento de texto, fins de linha e
+[.gitattributes](../../.gitattributes) define tratamento de texto, fins de linha e
 arquivos binários. Isso ajuda a manter o repositório consistente entre sistemas
 operacionais. Esses dois arquivos pertencem à organização do projeto e não são
 executados para decidir movimentos.
 
 ## 18. Os testes também ensinam como o código funciona
 
-Os arquivos em [tests/](../tests/) criam entradas controladas e verificam saídas.
+Os arquivos em [tests/](../../tests) criam entradas controladas e verificam saídas.
 Você pode ler um teste como uma pequena pergunta sobre o comportamento esperado.
 
 | Arquivo | Pergunta que ajuda a responder |
 |---|---|
-| [test_camera_fps.py](../tests/test_camera_fps.py) | A entrega respeita o FPS e usa uma imagem recente? |
-| [test_config_navigation.py](../tests/test_config_navigation.py) | Os padrões e parâmetros inválidos são tratados? |
-| [test_detector.py](../tests/test_detector.py) | Classes, confiança, caixas e valores inválidos da rede são tratados corretamente? |
-| [test_navigation.py](../tests/test_navigation.py) | Qual alvo é escolhido e quando a decisão deve mudar ou parar? |
-| [test_esp32_link.py](../tests/test_esp32_link.py) | Como consulta, confirmação, heartbeat e falhas afetam os envios? |
-| [test_video_display.py](../tests/test_video_display.py) | O ciclo principal integra vídeo, navegação e serial corretamente? |
-| [test_firmware.py](../tests/test_firmware.py) | O firmware se comporta corretamente nos modos e APIs previstos? |
+| [test_camera_fps.py](../../tests/test_camera_fps.py) | A entrega respeita o FPS e usa uma imagem recente? |
+| [test_config_navigation.py](../../tests/test_config_navigation.py) | Os padrões e parâmetros inválidos são tratados? |
+| [test_detector.py](../../tests/test_detector.py) | Classes, confiança, caixas e valores inválidos da rede são tratados corretamente? |
+| [test_navigation.py](../../tests/test_navigation.py) | Qual alvo é escolhido e quando a decisão deve mudar ou parar? |
+| [test_esp32_link.py](../../tests/test_esp32_link.py) | Como consulta, confirmação, heartbeat e falhas afetam os envios? |
+| [test_video_display.py](../../tests/test_video_display.py) | O ciclo principal integra vídeo, navegação e serial corretamente? |
+| [test_firmware.py](../../tests/test_firmware.py) | O firmware se comporta corretamente nos modos e APIs previstos? |
 
 Em `test_esp32_link.py`, `FakeSerial` imita uma porta. Ela guarda mensagens
 escritas e fornece respostas programadas. O teste pode simular falta de `READY`,
@@ -1192,13 +1193,13 @@ a integração entre decisões e mensagens.
 `test_firmware.py` compila o sketch com substitutos de Arduino e dos dispositivos.
 Os testes enviam mensagens `CONFIG` para selecionar OLED ou motores e o uso do
 sensor, como faz o programa real. Os programas
-[firmware_behavior.cpp](../tests/firmware_behavior.cpp) e
-[firmware_oled.cpp](../tests/firmware_oled.cpp) usam os substitutos em
-[firmware_stubs/](../tests/firmware_stubs/) para verificar pulsos, parada, rampa,
+[firmware_behavior.cpp](../../tests/firmware_behavior.cpp) e
+[firmware_oled.cpp](../../tests/firmware_oled.cpp) usam os substitutos em
+[firmware_stubs/](../../tests/firmware_stubs) para verificar pulsos, parada, rampa,
 mensagens e tela. As chamadas de PWM são contadas para conferir que o modo OLED
 não as executa.
 
-[firmware_configuration.cpp](../tests/firmware_configuration.cpp) exercita
+[firmware_configuration.cpp](../../tests/firmware_configuration.cpp) exercita
 mensagens de configuração, trocas de saída e pedidos inválidos. Os casos de
 sensor conferem o limiar de distância, a expiração, a reativação e a volta do
 contador de tempo. Nos testes Python, a expiração pode ser simulada durante
@@ -1213,8 +1214,8 @@ Este exemplo usa somente `Detection` e `Navigation`. Execute na raiz do projeto:
 
 ```bash
 .venv/bin/python - <<'PY'
-from detection.types import Detection
-from navigation import Navigation
+from ecoflutuador.detection.types import Detection
+from ecoflutuador.navigation import Navigation
 
 navigation = Navigation()
 positions = [(80, 100), (120, 100), (210, 100), (210, 160), (210, 150)]
@@ -1287,5 +1288,5 @@ a próxima execução. Essa abordagem ajuda a diferenciar dados da imagem,
 estado da navegação, estado da comunicação e saída do firmware.
 
 Para conferir a implementação, use os arquivos locais vinculados em cada seção.
-As referências gerais estão em [Fontes consultadas](../README.md#fontes-consultadas),
-e os procedimentos de bancada estão em [testes.md](testes.md).
+As referências gerais estão em [Fontes consultadas](../../README.md#fontes-consultadas),
+e os procedimentos de bancada estão em [testes.md](../../README.md#setup-e-testes--ecoflutuador-v41).
