@@ -9,7 +9,7 @@ void send(const std::string& message) {
 }
 
 void clearEchoes() {
-  for (uint8_t pin : {21, 35, 32}) {
+  for (uint8_t pin : {19, 35, 32}) {
     testEchoDurations[pin] = 0;
     testEchoDelaysUs[pin] = 0;
     testEchoHeldHigh[pin] = false;
@@ -22,7 +22,7 @@ void measure() {
   const uint32_t triggers = testTriggerCalls;
   loop();
   assert(testTriggerCalls == triggers + 1);
-  assert(testTriggerWidthUs == 10 && testDigitalValues[19] == LOW);
+  assert(testTriggerWidthUs == 10 && testDigitalValues[21] == LOW);
   assert(micros() - before <= 30100);  // Um timeout total, mesmo com sensores ausentes.
 }
 
@@ -33,8 +33,8 @@ void expectDistance(int sensor, float expected) {
 int main() {
   testPerPinEcho = true;
   setup();
-  assert(testPinModeCalls[19] == 1 && testPinModes[19] == OUTPUT);
-  for (uint8_t pin : {21, 35, 32}) {
+  assert(testPinModeCalls[21] == 1 && testPinModes[21] == OUTPUT);
+  for (uint8_t pin : {19, 35, 32}) {
     assert(testPinModeCalls[pin] == 1 && testPinModes[pin] == INPUT);
   }
   for (int sensor = 1; sensor <= 3; ++sensor) {
@@ -46,7 +46,7 @@ int main() {
   assert(armado && !iniciar);
 
   // Os tres pulsos comecam juntos; o segundo e o terceiro terminam antes do primeiro.
-  testEchoDurations[21] = 1800;
+  testEchoDurations[19] = 1800;
   testEchoDurations[35] = 700;
   testEchoDurations[32] = 1200;
   measure();
@@ -59,7 +59,7 @@ int main() {
   assert(display.shown.find("Dist3: 20.6 cm") != std::string::npos);
 
   // Cada ECHO, isoladamente, pode liberar uma janela sem depender dos outros.
-  for (uint8_t pin : {21, 35, 32}) {
+  for (uint8_t pin : {19, 35, 32}) {
     clearEchoes();
     send("CONFIG:OLED:1\n");
     assert(!iniciar);
@@ -80,7 +80,7 @@ int main() {
   }
 
   // O limite continua estritamente abaixo de 15 cm, inclusive no terceiro ECHO.
-  for (uint8_t pin : {21, 35, 32}) testEchoDurations[pin] = 875;
+  for (uint8_t pin : {19, 35, 32}) testEchoDurations[pin] = 875;
   measure();
   assert(!iniciar && distancia >= 15.0f);
   testEchoDurations[32] = 874;
@@ -89,7 +89,7 @@ int main() {
 
   // Pulsos sobrepostos com atrasos diferentes preservam a duracao de cada sensor.
   clearEchoes();
-  testEchoDurations[21] = 2000;
+  testEchoDurations[19] = 2000;
   testEchoDurations[35] = 600;
   testEchoDurations[32] = 900;
   testEchoDelaysUs[35] = 300;
@@ -106,7 +106,7 @@ int main() {
   for (float value : distancias) assert(value < 0);
 
   // ECHO preso em HIGH ou sem descida no prazo nao impede a leitura do GPIO32.
-  testEchoHeldHigh[21] = true;
+  testEchoHeldHigh[19] = true;
   testEchoDurations[35] = 40000;
   testEchoDurations[32] = 700;
   measure();
@@ -117,8 +117,8 @@ int main() {
   // Uma subida que so ocorre depois do timeout nao deve liberar a navegacao.
   clearEchoes();
   send("CONFIG:OLED:1\n");
-  testEchoDurations[21] = 700;
-  testEchoDelaysUs[21] = 31000;
+  testEchoDurations[19] = 700;
+  testEchoDelaysUs[19] = 31000;
   measure();
   assert(!iniciar && distancia < 0);
 
@@ -127,7 +127,7 @@ int main() {
   testClock = UINT32_MAX / 1000u;
   testSubClockUs = UINT32_MAX % 1000u - 100u;
   ultimaLeitura = testClock - 100;
-  testEchoDurations[21] = 700;
+  testEchoDurations[19] = 700;
   testEchoDurations[35] = 800;
   testEchoDurations[32] = 900;
   const uint32_t beforeWrap = micros();

@@ -26,8 +26,8 @@ auto& SerialComando = Serial2;
 
 constexpr uint8_t UART_RX_PIN = 16;
 constexpr uint8_t UART_TX_PIN = 17;
-const int trigPin = 19;
-constexpr uint8_t echoPins[] = {21, 35, 32};
+const int trigPin = 21;
+constexpr uint8_t echoPins[] = {19, 35, 32};
 constexpr uint8_t NUM_SENSORES = sizeof(echoPins) / sizeof(echoPins[0]);
 constexpr uint32_t TEMPO_ECO_US = 30000;
 float distancias[NUM_SENSORES] = {-1.0f, -1.0f, -1.0f};

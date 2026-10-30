@@ -869,7 +869,7 @@ regravar a placa para alternar essas duas escolhas.
 | `saidaPronta` | Inicialização da saída concluída, seja OLED ou motores |
 | `oledPronto` | Resultado da inicialização do display, independente do modo de acionamento |
 | `distancia` | Menor distância válida em centímetros entre os três sensores, ou −1 quando nenhum responde |
-| `distancias` | Distâncias individuais na ordem dos ECHOs 21, 35 e 32; −1 indica ausência de leitura válida |
+| `distancias` | Distâncias individuais na ordem dos ECHOs 19, 35 e 32; −1 indica ausência de leitura válida |
 | `echoPins` / `NUM_SENSORES` | GPIOs dos ECHOs e quantidade de sensores |
 | `usarOled` / `usarUltrassonico` | Opções recebidas pela UART |
 | `iniciar` | Liberação dos movimentos e do reconhecimento |
@@ -886,7 +886,7 @@ resultado da inicialização, não uma medição do movimento.
 ### 13.3. `setup()` e `configurarSaida()`: iniciar e escolher a saída
 
 `setup()` abre a serial. No modo UART2, também abre `Serial2` com os pinos
-configurados. Inicializa TRIG19 e os ECHOs 21/35/32 como entradas, além do OLED,
+configurados. Inicializa TRIG21 e os ECHOs 19/35/32 como entradas, além do OLED,
 que mostra `CMD: s` e `sem eco` nas linhas `Dist1`, `Dist2` e `Dist3`.
 Em seguida, envia `CONFIG_REQUIRED`: a placa continua lendo comandos e medindo
 a distância, sem gerar PWM, enquanto aguarda a escolha de operação.
@@ -906,7 +906,7 @@ versão do core Arduino-ESP32. A ligação confirmada usa SCL22/SDA23;
 veja a tabela de conexões em
 [HARDWARE.md](../../README.md#conexões-dos-cabos).
 
-TRIG no GPIO19 e os ECHOs nos GPIOs 21, 35 e 32 são configurados independentemente
+TRIG no GPIO21 e os ECHOs nos GPIOs 19, 35 e 32 são configurados independentemente
 do modo. Os três sensores compartilham TRIG, VCC e GND; seus ECHOs permanecem
 separados, cada um com adaptação externa para a lógica de 3,3 V da ESP32.
 
@@ -1008,7 +1008,7 @@ corta a alimentação elétrica dos ESCs.
 
 `mostrarComandoNoOLED()` limpa o buffer da tela, escreve a letra, as três distâncias
 em centímetros e a interpretação, e chama `display.display()` para enviar o desenho.
-`Dist1`, `Dist2` e `Dist3` correspondem aos ECHOs 21, 35 e 32. Sem leitura válida,
+`Dist1`, `Dist2` e `Dist3` correspondem aos ECHOs 19, 35 e 32. Sem leitura válida,
 a linha daquele sensor mostra `sem eco`. A função atende também o modo motores.
 O modo OLED
 não configura PWM nem executa uma simulação da rampa.
@@ -1219,7 +1219,7 @@ contador de tempo. Nos testes Python, a expiração pode ser simulada durante
 uma inferência ou uma espera de ACK, sem câmera ou placa físicas.
 
 [firmware_ultrasonic.cpp](../../tests/firmware_ultrasonic.cpp) simula pulsos
-simultâneos e sobrepostos nos ECHOs 21/35/32, a ativação por cada sensor,
+simultâneos e sobrepostos nos ECHOs 19/35/32, a ativação por cada sensor,
 entradas sem resposta ou presas em HIGH e a volta do contador de `micros()`.
 Também confere que há um único disparo e um único timeout para o conjunto.
 

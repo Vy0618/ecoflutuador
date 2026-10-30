@@ -52,8 +52,8 @@ int main() {
   assert(armado && SerialComando.output.find("READY") != std::string::npos);
   assert(comandoAtual == 's');
   assert(!iniciar);
-  assert(testPinModeCalls[19] == 1 && testPinModes[19] == OUTPUT);
-  assert(testPinModeCalls[21] == 1 && testPinModes[21] == INPUT);
+  assert(testPinModeCalls[21] == 1 && testPinModes[21] == OUTPUT);
+  assert(testPinModeCalls[19] == 1 && testPinModes[19] == INPUT);
   SerialComando.output.clear();
   send("?\n");
   assert(SerialComando.output == "CAPS:HEARTBEAT\nINICIAR:0\nREADY\n");
@@ -69,7 +69,7 @@ int main() {
   testEchoDuration = 0;
   assert(iniciar);
   assert(testTriggerCalls > 0 && testTriggerWidthUs == 10);
-  assert(testDigitalValues[19] == LOW);
+  assert(testDigitalValues[21] == LOW);
   SerialComando.output.clear();
   send("?\n");
   assert(SerialComando.output == "CAPS:HEARTBEAT\nINICIAR:1\nREADY\n");

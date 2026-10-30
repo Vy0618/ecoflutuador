@@ -45,7 +45,7 @@ inline void pinMode(uint8_t pin, uint8_t mode) {
   ++testPinModeCalls[pin];
 }
 inline void digitalWrite(uint8_t pin, uint8_t value) {
-  if (pin == 19) {
+  if (pin == 21) {
     if (value == HIGH && testDigitalValues[pin] == LOW) testTriggerHighUs = micros();
     if (value == LOW && testDigitalValues[pin] == HIGH) {
       ++testTriggerCalls;
@@ -56,7 +56,7 @@ inline void digitalWrite(uint8_t pin, uint8_t value) {
   testDigitalValues[pin] = value;
 }
 inline int digitalRead(uint8_t pin) {
-  if (pin != 21 && pin != 35 && pin != 32) return testDigitalValues[pin];
+  if (pin != 19 && pin != 35 && pin != 32) return testDigitalValues[pin];
   if (testEchoHeldHigh[pin]) return HIGH;
   if (testTriggerCalls == 0) return LOW;
   const uint32_t elapsed = micros() - testTriggerUs;

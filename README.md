@@ -212,8 +212,8 @@ na inicialização e só prepara o acionamento após uma configuração válida.
 No teste contínuo, a configuração informa `INICIAR:1` sem depender do HC-SR04.
 O passo a passo está no [guia OLED](docs/TESTE_OLED.md).
 
-Os três HC-SR04 compartilham TRIG no GPIO 19, VCC e GND. Os ECHOs são separados:
-sensor 1 no GPIO 21, sensor 2 no GPIO 35 e sensor 3 no GPIO 32.
+Os três HC-SR04 compartilham TRIG no GPIO 21, VCC e GND. Os ECHOs são separados:
+sensor 1 no GPIO 19, sensor 2 no GPIO 35 e sensor 3 no GPIO 32.
 A ESP32 dispara os três a cada 100 ms e acompanha os ECHOs no mesmo disparo,
 com uma única espera máxima de 30 ms para o conjunto. Com a ativação por
 proximidade habilitada, uma leitura válida abaixo de 15 cm em **qualquer sensor** envia
@@ -239,7 +239,7 @@ inicial é 30% por ESC, com alvo de 1300 µs. Há armamento de três segundos e 
 não bloqueante de 15 µs a cada 20 ms. No modo OLED, nenhum PWM é gerado.
 A tela é inicializada ao ligar e mostra o comando interpretado e as três distâncias
 em centímetros nos dois modos: `Dist1`, `Dist2` e `Dist3`, correspondentes aos
-ECHOs 21, 35 e 32, respectivamente. Sem leitura válida, a linha daquele sensor
+ECHOs 19, 35 e 32, respectivamente. Sem leitura válida, a linha daquele sensor
 mostra `sem eco`. A menor distância válida é usada para a ativação; sensores
 sem resposta não impedem a ativação pelos demais.
 Os três HC-SR04 são medidos a cada 100 ms mesmo com `--no-ultrasonic`; esse argumento
@@ -291,7 +291,7 @@ O [HC-SR04 clássico](https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR
 usa alimentação de 5 V e pode entregar
 [ECHO de 5 V](https://learn.adafruit.com/ultrasonic-sonar-distance-sensors/pinouts).
 **Cada ECHO precisa de seu próprio divisor ou conversor de nível antes dos
-GPIOs 21, 35 e 32**, que usam lógica de 3,3 V. Os ECHOs não são unidos entre si.
+GPIOs 19, 35 e 32**, que usam lógica de 3,3 V. Os ECHOs não são unidos entre si.
 A fonte real dos sensores permanece pendente. O
 [guia de hardware](docs/HARDWARE.md#hc-sr04-ligações-previstas) descreve as
 ligações previstas; os diagramas anteriores continuam mostrando apenas os
@@ -319,9 +319,9 @@ A apresentação, o funcionamento, o hardware e as fontes estão no
 Na Raspberry, os números **GPIO/BCM** são diferentes dos números físicos do
 conector. Na ESP32, os números abaixo identificam seus GPIOs.
 
-A pinagem atual do firmware é: **TRIG19 comum, ECHOs 21/35/32, SDA23, SCL22, ESC1 no
+A pinagem atual do firmware é: **TRIG21 comum, ECHOs 19/35/32, SDA23, SCL22, ESC1 no
 GPIO12 e ESC2 no GPIO13**. A UART permanece em **RX2/GPIO16 e TX2/GPIO17**.
-Se a montagem ainda usa TRIG18, ECHO19 ou ESC2 no GPIO14, desligue a alimentação,
+Se a montagem usa uma pinagem diferente da indicada acima, desligue a alimentação,
 mova os fios conforme as tabelas abaixo e regrave o firmware usando o perfil
 correspondente à sua conexão, conforme as instruções de gravação deste guia.
 
@@ -338,8 +338,8 @@ correspondente à sua conexão, conforme as instruções de gravação deste gui
 
 | ESP32 / fonte / conexão | Pino do HC-SR04 | Função ou observação |
 |---|---|---|
-| GPIO19 | TRIG dos três sensores | Pulso de medição comum enviado pela ESP32 |
-| GPIO21, **após adaptação para 3,3 V** | ECHO do sensor 1 | Resposta individual; `Dist1` no OLED |
+| GPIO21 | TRIG dos três sensores | Pulso de medição comum enviado pela ESP32 |
+| GPIO19, **após adaptação para 3,3 V** | ECHO do sensor 1 | Resposta individual; `Dist1` no OLED |
 | GPIO35, **após adaptação para 3,3 V** | ECHO do sensor 2 | Resposta individual; `Dist2` no OLED |
 | GPIO32, **após adaptação para 3,3 V** | ECHO do sensor 3 | Resposta individual; `Dist3` no OLED |
 | Fonte de 5 V compartilhada | VCC dos três sensores | Fonte e cabo reais: a confirmar |
@@ -645,8 +645,8 @@ OLED SSD1306 de endereço I²C `0x3C`.
 | Sinal do ESC 1 / motor esquerdo | GPIO 12 |
 | Sinal do ESC 2 / motor direito | GPIO 13 |
 | Referência dos ESCs | GND comum com a ESP32 |
-| TRIG dos três HC-SR04 | GPIO19 comum |
-| ECHO do HC-SR04 1 (`Dist1`) | Adaptação de nível de 5 V para 3,3 V → GPIO21 |
+| TRIG dos três HC-SR04 | GPIO21 comum |
+| ECHO do HC-SR04 1 (`Dist1`) | Adaptação de nível de 5 V para 3,3 V → GPIO19 |
 | ECHO do HC-SR04 2 (`Dist2`) | Adaptação de nível de 5 V para 3,3 V → GPIO35 |
 | ECHO do HC-SR04 3 (`Dist3`) | Adaptação de nível de 5 V para 3,3 V → GPIO32 |
 
@@ -659,7 +659,7 @@ A tela usa I²C nos pinos SDA23/SCL22, conforme a
 Mais detalhes da tela estão no [guia OLED](docs/TESTE_OLED.md).
 Os HC-SR04 não precisam estar conectados no teste OLED padrão.
 O HC-SR04 clássico usa VCC de 5 V; a fonte real ainda precisa ser definida.
-Não conecte ECHO de 5 V diretamente aos GPIOs 21, 35 ou 32.
+Não conecte ECHO de 5 V diretamente aos GPIOs 19, 35 ou 32.
 Confira GND, alimentação e adaptação
 nas [ligações previstas do sensor](docs/HARDWARE.md#hc-sr04-ligações-previstas).
 
