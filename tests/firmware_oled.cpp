@@ -18,16 +18,16 @@ int main(int argc, char**) {
   if (argc > 1) display.initialize = false;
   setup();
   if (argc == 1) {
-    expectScreen('s', "Dist: sem eco");
+    expectScreen('s', "Dist1: sem eco");
     testEchoDuration = 700;
     testClock += 100;
     loop();
-    expectScreen('s', "Dist: 12.0 cm");
+    expectScreen('s', "Dist1: 12.0 cm");
     assert(!saidaPronta && !iniciar);
     testEchoDuration = 0;
     testClock += 100;
     loop();
-    expectScreen('s', "Dist: sem eco");
+    expectScreen('s', "Dist1: sem eco");
   }
   assert(testPwmCalls == 0);
   assert(!saidaPronta && !armado && !iniciar);
@@ -61,17 +61,17 @@ int main(int argc, char**) {
       expectScreen('w', "Ambos: avancar");
       send("a\n");
       expectScreen('a', "Esquerdo: virar dir");
-      assert(iniciar && testPulseCalls > 0);
-      assert(display.shown.find("Dist: sem eco") != std::string::npos);
+      assert(iniciar && testTriggerCalls > 0);
+      assert(display.shown.find("Dist1: sem eco") != std::string::npos);
     }
     testEchoDuration = 700;
     testClock += 100;
     loop();
-    expectScreen('a', "Dist: 12.0 cm");
+    expectScreen('a', "Dist1: 12.0 cm");
     testEchoDuration = 0;
     testClock += 100;
     loop();
-    expectScreen('a', "Dist: sem eco");
+    expectScreen('a', "Dist1: sem eco");
     assert(SerialComando.output.find("INICIAR:0") == std::string::npos);
     testClock = ultimoComando + 3000;
     loop();
@@ -92,7 +92,7 @@ int main(int argc, char**) {
   loop();
   testEchoDuration = 0;
   assert(iniciar);
-  expectScreen('s', "Dist: 12.0 cm");
+  expectScreen('s', "Dist1: 12.0 cm");
   send("w\n");
   expectScreen('w', "Ambos: avancar");
   assert(SerialComando.output.find("CMD_OK:w") != std::string::npos);
@@ -148,14 +148,12 @@ int main(int argc, char**) {
   testClock += 100;
   loop();
   assert(iniciar && inicioTimer == testClock);
-  // O tempo gasto em pulseIn tambem participa da expiracao.
+  // A espera pelos ecos tambem participa da expiracao.
   testEchoDuration = 0;
   testClock = inicioTimer + 29990;
-  testPulseDelayMs = 30;
   send("w\n");
   assert(!iniciar);
   expectScreen('s', "Parado");
-  testPulseDelayMs = 0;
   // Janela iniciada antes da volta do contador expira corretamente depois dela.
   testClock = UINT32_MAX - 1000;
   testEchoDuration = 700;
@@ -163,7 +161,8 @@ int main(int argc, char**) {
   const uint32_t wrapStart = inicioTimer;
   assert(iniciar);
   testEchoDuration = 0;
-  testClock = wrapStart + 29999;
+  // Ainda ha margem para a espera de ate 30 ms pelos tres ecos.
+  testClock = wrapStart + 29960;
   loop();
   assert(iniciar);
   testClock = wrapStart + 30000;

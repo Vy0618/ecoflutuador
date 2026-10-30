@@ -39,6 +39,9 @@ class FirmwareTests(unittest.TestCase):
     def test_configuration_frames_mode_changes_and_invalid_requests(self):
         self.run_firmware("firmware_configuration.cpp", runs=((), ("--display-failed",)))
 
+    def test_three_sensors_share_trigger_and_capture_overlapping_echoes(self):
+        self.run_firmware("firmware_ultrasonic.cpp")
+
 
 if __name__ == "__main__":
     unittest.main()

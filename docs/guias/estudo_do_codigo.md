@@ -849,8 +849,8 @@ bool usarUltrassonico = false;
 ```
 
 `usarOled=true` mantém apenas o teste visual; `false` também aciona os ESCs.
-A tela mostra comando e distância nos dois modos. `usarUltrassonico`
-define se a liberação depende do HC-SR04, cuja distância é medida em todos os modos.
+A tela mostra comando e as três distâncias nos dois modos. `usarUltrassonico`
+define se a liberação depende dos HC-SR04, medidos em todos os modos.
 `configurarSaida()` aplica os valores
 recebidos em uma das quatro mensagens `CONFIG`.
 
@@ -868,7 +868,9 @@ regravar a placa para alternar essas duas escolhas.
 | `atual1`, `atual2` | Pulsos atuais durante a rampa |
 | `saidaPronta` | Inicialização da saída concluída, seja OLED ou motores |
 | `oledPronto` | Resultado da inicialização do display, independente do modo de acionamento |
-| `distancia` | Distância atual em centímetros, ou −1 quando não há leitura válida |
+| `distancia` | Menor distância válida em centímetros entre os três sensores, ou −1 quando nenhum responde |
+| `distancias` | Distâncias individuais na ordem dos ECHOs 21, 35 e 32; −1 indica ausência de leitura válida |
+| `echoPins` / `NUM_SENSORES` | GPIOs dos ECHOs e quantidade de sensores |
 | `usarOled` / `usarUltrassonico` | Opções recebidas pela UART |
 | `iniciar` | Liberação dos movimentos e do reconhecimento |
 | `armado` | O período de espera inicial terminou |
@@ -884,7 +886,8 @@ resultado da inicialização, não uma medição do movimento.
 ### 13.3. `setup()` e `configurarSaida()`: iniciar e escolher a saída
 
 `setup()` abre a serial. No modo UART2, também abre `Serial2` com os pinos
-configurados. Inicializa TRIG19/ECHO21 e o OLED e mostra `CMD: s` e `Dist: sem eco`.
+configurados. Inicializa TRIG19 e os ECHOs 21/35/32 como entradas, além do OLED,
+que mostra `CMD: s` e `sem eco` nas linhas `Dist1`, `Dist2` e `Dist3`.
 Em seguida, envia `CONFIG_REQUIRED`: a placa continua lendo comandos e medindo
 a distância, sem gerar PWM, enquanto aguarda a escolha de operação.
 
@@ -903,9 +906,9 @@ versão do core Arduino-ESP32. A ligação confirmada usa SCL22/SDA23;
 veja a tabela de conexões em
 [HARDWARE.md](../../README.md#conexões-dos-cabos).
 
-TRIG no GPIO19 e ECHO no GPIO21 são configurados independentemente do modo.
-O sensor usa um circuito externo cuja tensão do ECHO deve ser compatível com a
-ESP32; a implementação não faz essa adaptação elétrica.
+TRIG no GPIO19 e os ECHOs nos GPIOs 21, 35 e 32 são configurados independentemente
+do modo. Os três sensores compartilham TRIG, VCC e GND; seus ECHOs permanecem
+separados, cada um com adaptação externa para a lógica de 3,3 V da ESP32.
 
 Após inicializar a saída, aplica `parar()` e reinicia os tempos de preparação,
 rampa e sensor. `iniciar` começa verdadeiro sem sensor e falso com sensor.
@@ -1003,9 +1006,10 @@ inicializada, no modo motores
 escreve o mínimo imediatamente. No OLED, mostra `s`. O comando de parada não
 corta a alimentação elétrica dos ESCs.
 
-`mostrarComandoNoOLED()` limpa o buffer da tela, escreve a letra, a distância em
-centímetros e a interpretação, e chama `display.display()` para enviar o desenho.
-Sem leitura válida, mostra `Dist: sem eco`. A função atende também o modo motores.
+`mostrarComandoNoOLED()` limpa o buffer da tela, escreve a letra, as três distâncias
+em centímetros e a interpretação, e chama `display.display()` para enviar o desenho.
+`Dist1`, `Dist2` e `Dist3` correspondem aos ECHOs 21, 35 e 32. Sem leitura válida,
+a linha daquele sensor mostra `sem eco`. A função atende também o modo motores.
 O modo OLED
 não configura PWM nem executa uma simulação da rampa.
 
@@ -1016,17 +1020,26 @@ a configuração, sem liberar movimento. Depois
 de configurado, completa o período inicial, marca `armado=true` e anuncia
 `READY`.
 
-Em todos os modos, mede a cada 100 ms para atualizar o OLED. O disparo usa um pulso TRIG
-de 10 µs; `pulseIn(echoPin, HIGH, 30000UL)` espera o ECHO por até 30 ms. A
-distância é estimada a partir da duração de ida e volta:
+Em todos os modos, `medirDistancias()` mede a cada 100 ms para atualizar o OLED.
+O disparo usa um único pulso TRIG de 10 µs para os três sensores. Como os ECHOs
+podem se sobrepor, a função acompanha a subida e a descida de cada entrada no
+mesmo ciclo, usando `digitalRead()` e `micros()`. Ler cada ECHO com `pulseIn()`
+em sequência perderia os pulsos dos outros sensores.
+
+O conjunto tem uma única espera máxima de 30 ms, mesmo quando um ou mais sensores
+não respondem. Um ECHO já alto antes do disparo precisa voltar a baixo antes
+de se considerar um novo pulso. Pulsos sem descida dentro do prazo são inválidos.
+As leituras individuais são reiniciadas para −1 em cada medição, evitando usar
+distâncias antigas. Cada distância válida é estimada pela duração de ida e volta:
 
 ```cpp
-float distancia = duracao * 0.0343f / 2.0f;
+distancias[sensor] = duracao * 0.0343f / 2.0f;
 ```
 
-Quando a ativação por ultrassônico está habilitada e a saída configurada,
-uma duração positiva com distância abaixo de 15 cm inicia uma janela fixa de
-30 segundos e envia `INICIAR:1`. Leituras próximas e heartbeats não reiniciam
+`distancia` guarda a menor leitura válida entre os três sensores. Quando a
+ativação por ultrassônico está habilitada e a saída configurada,
+uma duração positiva com distância abaixo de 15 cm em qualquer sensor inicia
+uma janela fixa de 30 segundos e envia `INICIAR:1`. Leituras próximas e heartbeats não reiniciam
 esse prazo enquanto a janela está aberta. Sem eco, a leitura não ativa uma
 janela. Ao expirar, aplica parada e envia `INICIAR:0` antes de interpretar as
 letras recebidas. Uma nova leitura próxima pode iniciar outra janela; não há
@@ -1204,6 +1217,11 @@ mensagens de configuração, trocas de saída e pedidos inválidos. Os casos de
 sensor conferem o limiar de distância, a expiração, a reativação e a volta do
 contador de tempo. Nos testes Python, a expiração pode ser simulada durante
 uma inferência ou uma espera de ACK, sem câmera ou placa físicas.
+
+[firmware_ultrasonic.cpp](../../tests/firmware_ultrasonic.cpp) simula pulsos
+simultâneos e sobrepostos nos ECHOs 21/35/32, a ativação por cada sensor,
+entradas sem resposta ou presas em HIGH e a volta do contador de `micros()`.
+Também confere que há um único disparo e um único timeout para o conjunto.
 
 Essas verificações demonstram o comportamento modelado pelo software. Ensaios
 com a placa, os ESCs e a embarcação verificam a resposta física.

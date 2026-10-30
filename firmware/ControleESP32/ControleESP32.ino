@@ -15,7 +15,7 @@
 bool usarOled = true;
 bool usarUltrassonico = false;
 bool oledPronto = false;
-float distancia = -1.0f;
+float distancia = -1.0f;  // Menor distancia valida entre os tres sensores.
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 #if ECO_SERIAL_USB
@@ -27,7 +27,10 @@ auto& SerialComando = Serial2;
 constexpr uint8_t UART_RX_PIN = 16;
 constexpr uint8_t UART_TX_PIN = 17;
 const int trigPin = 19;
-const int echoPin = 21;
+constexpr uint8_t echoPins[] = {21, 35, 32};
+constexpr uint8_t NUM_SENSORES = sizeof(echoPins) / sizeof(echoPins[0]);
+constexpr uint32_t TEMPO_ECO_US = 30000;
+float distancias[NUM_SENSORES] = {-1.0f, -1.0f, -1.0f};
 constexpr int OLED_SDA = 23;
 constexpr int OLED_SCL = 22;
 const unsigned long tempoAtivacao = 30000;
@@ -73,19 +76,70 @@ void mostrarComandoNoOLED(char comando) {
   display.print("CMD: ");
   display.println(comando);
   display.setTextSize(1);
-  display.setCursor(0, 32);
-  display.print("Dist: ");
-  if (distancia >= 0) {
-    display.print(distancia, 1);
-    display.println(" cm");
-  } else {
-    display.println("sem eco");
+  for (uint8_t sensor = 0; sensor < NUM_SENSORES; ++sensor) {
+    display.setCursor(0, 24 + sensor * 9);
+    display.print("Dist");
+    display.print(static_cast<int>(sensor + 1));
+    display.print(": ");
+    if (distancias[sensor] >= 0) {
+      display.print(distancias[sensor], 1);
+      display.println(" cm");
+    } else {
+      display.println("sem eco");
+    }
   }
   display.setCursor(0, 52);
   display.println(comando == 'w' ? "Ambos: avancar" :
                   comando == 'a' ? "Esquerdo: virar dir" :
                   comando == 'd' ? "Direito: virar esq" : "Parado");
   display.display();
+}
+
+void medirDistancias() {
+  uint32_t inicioEco[NUM_SENSORES] = {};
+  bool recebeuSubida[NUM_SENSORES] = {};
+  bool terminou[NUM_SENSORES] = {};
+  bool aguardarBaixo[NUM_SENSORES];
+  for (uint8_t sensor = 0; sensor < NUM_SENSORES; ++sensor) {
+    distancias[sensor] = -1.0f;
+    // Descarta um pulso que ja estava alto antes deste disparo.
+    aguardarBaixo[sensor] = digitalRead(echoPins[sensor]) == HIGH;
+  }
+
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  const uint32_t inicioMedicao = micros();
+  uint8_t pendentes = NUM_SENSORES;
+  // O TRIG e comum: pulseIn em sequencia perderia os ecos simultaneos.
+  // Todos os ECHOs compartilham uma unica janela de espera de ate 30 ms.
+  while (pendentes > 0 && micros() - inicioMedicao < TEMPO_ECO_US) {
+    const uint32_t agoraUs = micros();
+    for (uint8_t sensor = 0; sensor < NUM_SENSORES; ++sensor) {
+      if (terminou[sensor]) continue;
+      const bool alto = digitalRead(echoPins[sensor]) == HIGH;
+      if (aguardarBaixo[sensor]) {
+        if (!alto) aguardarBaixo[sensor] = false;
+      } else if (!recebeuSubida[sensor] && alto) {
+        inicioEco[sensor] = agoraUs;
+        recebeuSubida[sensor] = true;
+      } else if (recebeuSubida[sensor] && !alto) {
+        const uint32_t duracao = agoraUs - inicioEco[sensor];
+        if (duracao > 0) distancias[sensor] = duracao * 0.0343f / 2.0f;
+        terminou[sensor] = true;
+        --pendentes;
+      }
+    }
+    if (pendentes > 0) delayMicroseconds(1);
+  }
+  distancia = -1.0f;
+  for (uint8_t sensor = 0; sensor < NUM_SENSORES; ++sensor) {
+    if (distancias[sensor] >= 0 && (distancia < 0 || distancias[sensor] < distancia)) {
+      distancia = distancias[sensor];
+    }
+  }
 }
 
 void escreverEscs() {
@@ -273,7 +327,9 @@ void setup() {
   SerialComando.begin(SERIAL_BAUD, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
 #endif
   pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+  for (uint8_t sensor = 0; sensor < NUM_SENSORES; ++sensor) {
+    pinMode(echoPins[sensor], INPUT);
+  }
   digitalWrite(trigPin, LOW);
   Wire.begin(OLED_SDA, OLED_SCL);
   oledPronto = display.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, false);
@@ -295,15 +351,9 @@ void loop() {
   // Mede em todos os modos; usarUltrassonico controla somente a ativacao.
   if (agora - ultimaLeitura >= 100) {
     ultimaLeitura = agora;
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-    unsigned long duracao = pulseIn(echoPin, HIGH, 30000UL);
-    distancia = duracao > 0 ? duracao * 0.0343f / 2.0f : -1.0f;
+    medirDistancias();
     mostrarComandoNoOLED(comandoAtual);
-    if (usarUltrassonico && saidaPronta && !iniciar && duracao > 0 && distancia < 15.0f) {
+    if (usarUltrassonico && saidaPronta && !iniciar && distancia >= 0 && distancia < 15.0f) {
       iniciar = true;
       inicioTimer = millis();
       SerialComando.write("INICIAR:1\n");

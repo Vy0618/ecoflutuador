@@ -45,7 +45,7 @@ OpenCV; o fluxo atual dispensa o pacote Python TensorFlow.
 
 | Biblioteca ou ferramenta | Uso |
 |---|---|
-| Arduino-ESP32 | UART, temporização, leitura do HC-SR04 com `pulseIn` e PWM LEDC dos ESCs |
+| Arduino-ESP32 | UART, temporização, leitura simultânea dos três HC-SR04 e PWM LEDC dos ESCs |
 | `Wire` | Barramento I²C do OLED; acompanha o core Arduino |
 | Adafruit SSD1306 | Controle da tela 128×64 |
 | Adafruit GFX Library | Texto e desenho na tela |
@@ -212,8 +212,11 @@ na inicialização e só prepara o acionamento após uma configuração válida.
 No teste contínuo, a configuração informa `INICIAR:1` sem depender do HC-SR04.
 O passo a passo está no [guia OLED](docs/TESTE_OLED.md).
 
-Quando habilitado, o HC-SR04 usa TRIG no GPIO 19 e ECHO no GPIO 21. A ESP32 mede a cada 100 ms,
-com espera máxima de 30 ms pelo pulso. Uma leitura válida abaixo de 15 cm envia
+Os três HC-SR04 compartilham TRIG no GPIO 19, VCC e GND. Os ECHOs são separados:
+sensor 1 no GPIO 21, sensor 2 no GPIO 35 e sensor 3 no GPIO 32.
+A ESP32 dispara os três a cada 100 ms e acompanha os ECHOs no mesmo disparo,
+com uma única espera máxima de 30 ms para o conjunto. Com a ativação por
+proximidade habilitada, uma leitura válida abaixo de 15 cm em **qualquer sensor** envia
 `INICIAR:1`, liberando reconhecimento e movimentos por 30 segundos. Ao expirar,
 a ESP32 para localmente e envia `INICIAR:0`; o Python volta à espera. A consulta
 `?` também informa esse estado. Isso vale para UART2 e USB, com OLED ou motores;
@@ -234,9 +237,12 @@ No modo motores, `s` aplica o pulso mínimo de 1000 µs aos dois ESCs. O firmwar
 usa PWM de 50 Hz, resolução de 16 bits e pulsos de 1000–2000 µs. A potência
 inicial é 30% por ESC, com alvo de 1300 µs. Há armamento de três segundos e rampa
 não bloqueante de 15 µs a cada 20 ms. No modo OLED, nenhum PWM é gerado.
-A tela é inicializada ao ligar e mostra o comando interpretado e a distância
-em centímetros nos dois modos. Sem leitura válida, mostra `Dist: sem eco`.
-O HC-SR04 é medido a cada 100 ms mesmo com `--no-ultrasonic`; esse argumento
+A tela é inicializada ao ligar e mostra o comando interpretado e as três distâncias
+em centímetros nos dois modos: `Dist1`, `Dist2` e `Dist3`, correspondentes aos
+ECHOs 21, 35 e 32, respectivamente. Sem leitura válida, a linha daquele sensor
+mostra `sem eco`. A menor distância válida é usada para a ativação; sensores
+sem resposta não impedem a ativação pelos demais.
+Os três HC-SR04 são medidos a cada 100 ms mesmo com `--no-ultrasonic`; esse argumento
 dispensa apenas a ativação por proximidade e o limite de 30 segundos.
 
 ### Visualização e registros
@@ -265,7 +271,7 @@ coleta física. Os exemplos de execução e leitura dos logs estão no
 | Dois motores brushless | Propulsão e correção da trajetória |
 | Dois ESCs | Acionar os motores a partir dos sinais PWM da ESP32 |
 | OLED SSD1306 128×64, I²C `0x3C` | Exibir comandos no teste visual sem motores |
-| HC-SR04 | Liberar a janela de reconhecimento e movimento pela proximidade |
+| Três HC-SR04 | Liberar a janela de reconhecimento e movimento pela proximidade em qualquer sensor |
 | Rede de coleta | Coleta passiva na parte inferior da embarcação |
 | Cabos USB, fios UART e alimentação dos ESCs | Programação, comunicação e alimentação da montagem |
 
@@ -284,8 +290,9 @@ os detalhes da ligação física ainda precisam ser confirmados.
 O [HC-SR04 clássico](https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR04.pdf)
 usa alimentação de 5 V e pode entregar
 [ECHO de 5 V](https://learn.adafruit.com/ultrasonic-sonar-distance-sensors/pinouts).
-**ECHO precisa de divisor ou conversor de nível antes do GPIO 21**, que usa
-lógica de 3,3 V. A fonte real do sensor permanece pendente. O
+**Cada ECHO precisa de seu próprio divisor ou conversor de nível antes dos
+GPIOs 21, 35 e 32**, que usam lógica de 3,3 V. Os ECHOs não são unidos entre si.
+A fonte real dos sensores permanece pendente. O
 [guia de hardware](docs/HARDWARE.md#hc-sr04-ligações-previstas) descreve as
 ligações previstas; os diagramas anteriores continuam mostrando apenas os
 sete jumpers Raspberry–ESP32–OLED, sem o sensor.
@@ -312,7 +319,7 @@ A apresentação, o funcionamento, o hardware e as fontes estão no
 Na Raspberry, os números **GPIO/BCM** são diferentes dos números físicos do
 conector. Na ESP32, os números abaixo identificam seus GPIOs.
 
-A pinagem atual do firmware é: **TRIG19, ECHO21, SDA23, SCL22, ESC1 no
+A pinagem atual do firmware é: **TRIG19 comum, ECHOs 21/35/32, SDA23, SCL22, ESC1 no
 GPIO12 e ESC2 no GPIO13**. A UART permanece em **RX2/GPIO16 e TX2/GPIO17**.
 Se a montagem ainda usa TRIG18, ECHO19 ou ESC2 no GPIO14, desligue a alimentação,
 mova os fios conforme as tabelas abaixo e regrave o firmware usando o perfil
@@ -327,14 +334,19 @@ correspondente à sua conexão, conforme as instruções de gravação deste gui
 | 3V3 | VCC | Alimentação de 3,3 V |
 | Emenda de GND compartilhado | GND | Derivação 1 do cabo comum |
 
-#### ESP32 — Sensor ultrassônico HC-SR04
+#### ESP32 — Três sensores ultrassônicos HC-SR04
 
 | ESP32 / fonte / conexão | Pino do HC-SR04 | Função ou observação |
 |---|---|---|
-| GPIO19 | TRIG | Pulso de medição enviado pela ESP32 |
-| GPIO21, **após adaptação para 3,3 V** | ECHO | Resposta do sensor; não ligar ECHO de 5 V diretamente ao GPIO |
-| Fonte de 5 V | VCC | Fonte e cabo reais: a confirmar |
-| Emenda de GND compartilhado | GND | Derivação 2 do cabo comum |
+| GPIO19 | TRIG dos três sensores | Pulso de medição comum enviado pela ESP32 |
+| GPIO21, **após adaptação para 3,3 V** | ECHO do sensor 1 | Resposta individual; `Dist1` no OLED |
+| GPIO35, **após adaptação para 3,3 V** | ECHO do sensor 2 | Resposta individual; `Dist2` no OLED |
+| GPIO32, **após adaptação para 3,3 V** | ECHO do sensor 3 | Resposta individual; `Dist3` no OLED |
+| Fonte de 5 V compartilhada | VCC dos três sensores | Fonte e cabo reais: a confirmar |
+| Emenda de GND compartilhado | GND dos três sensores | Derivação 2 do cabo comum |
+
+VCC, GND e TRIG são comuns aos três sensores; cada ECHO segue separado até
+seu GPIO, com adaptação individual de 5 V para 3,3 V.
 
 #### ESP32 — ESCs
 
@@ -362,11 +374,12 @@ alimenta a ESP32. Mantenha essa referência comum mesmo com fontes separadas.
 | Origem | Ligação | Destino |
 |---|---|---|
 | GND do OLED | Derivação 1 | Emenda comum |
-| GND do HC-SR04 | Derivação 2 | Mesma emenda comum |
+| GNDs dos três HC-SR04 unidos | Derivação 2 | Mesma emenda comum |
 | GND de referência do ESC informado | Derivação 3 | Mesma emenda comum |
-| Emenda dos três GNDs | **Um único cabo** | **Ponto de GND da montagem — destino físico a confirmar** |
+| Emenda dos GNDs | **Um único cabo** | **Ponto de GND da montagem — destino físico a confirmar** |
 
-Os três fios de GND são unidos em uma emenda e seguem por um único cabo.
+Os GNDs do OLED, dos três sensores e da referência dos ESCs são unidos em uma
+emenda e seguem por um único cabo.
 O destino desse cabo foi descrito como
 “uma porta USB”; falta confirmar se isso significa um **pino GND da ESP32** ou
 o **GND de uma conexão USB**. As tabelas não pressupõem essa ligação. Todos esses
@@ -574,7 +587,8 @@ depender do HC-SR04 e sem acionar os motores.
 
 #### OLED com ultrassônico
 
-Mantém o reconhecimento em espera até uma leitura válida abaixo de 15 cm.
+Mantém o reconhecimento em espera até uma leitura válida abaixo de 15 cm em
+qualquer um dos três sensores.
 Depois, exibe os comandos no OLED durante a janela de 30 segundos.
 
 ```bash
@@ -607,16 +621,16 @@ comunicação continuam funcionando em todos os modos.
 |---|---|
 | `--output oled` | Exibe os comandos no OLED; nenhum PWM é gerado |
 | `--output motors` | Controla os ESCs e motores |
-| `--ultrasonic` | Exige o disparo do sensor e limita a janela a 30 s |
+| `--ultrasonic` | Exige proximidade em qualquer sensor e limita a janela a 30 s |
 | `--no-ultrasonic` | Reconhecimento contínuo, sem exigir disparo do sensor |
 
 **Grave esta versão do firmware uma vez.** Depois, a mudança entre esses modos
 é enviada pela UART, sem editar variáveis ou regravar a cada teste. O padrão
 com serial é OLED sem exigir disparo do sensor; os argumentos de modo exigem `--serial-port`.
-O display mostra `CMD: <letra>` e `Dist: <valor> cm` tanto em `oled` quanto em
-`motors`, desde a inicialização. A medição continua a cada 100 ms com
+O display mostra `CMD: <letra>` e `Dist1`/`Dist2`/`Dist3` em centímetros tanto
+em `oled` quanto em `motors`, desde a inicialização. A medição continua a cada 100 ms com
 `--no-ultrasonic`: a opção dispensa apenas a ativação por proximidade.
-Sem leitura válida ou com o sensor desconectado, a tela mostra `Dist: sem eco`.
+Sem leitura válida ou com um sensor desconectado, sua linha mostra `sem eco`.
 `--no-display` controla apenas o vídeo no computador. O teste visual usa
 OLED SSD1306 de endereço I²C `0x3C`.
 
@@ -631,8 +645,10 @@ OLED SSD1306 de endereço I²C `0x3C`.
 | Sinal do ESC 1 / motor esquerdo | GPIO 12 |
 | Sinal do ESC 2 / motor direito | GPIO 13 |
 | Referência dos ESCs | GND comum com a ESP32 |
-| HC-SR04 TRIG | GPIO19 |
-| HC-SR04 ECHO | Adaptação de nível de 5 V para 3,3 V → GPIO21 |
+| TRIG dos três HC-SR04 | GPIO19 comum |
+| ECHO do HC-SR04 1 (`Dist1`) | Adaptação de nível de 5 V para 3,3 V → GPIO21 |
+| ECHO do HC-SR04 2 (`Dist2`) | Adaptação de nível de 5 V para 3,3 V → GPIO35 |
+| ECHO do HC-SR04 3 (`Dist3`) | Adaptação de nível de 5 V para 3,3 V → GPIO32 |
 
 Para o modo motores, os GPIOs fornecem sinais aos ESCs; os ESCs e motores usam
 alimentação própria. Faça o primeiro teste de acionamento sem hélices. A parada
@@ -641,9 +657,10 @@ alimentação própria. Faça o primeiro teste de acionamento sem hélices. A pa
 A tela usa I²C nos pinos SDA23/SCL22, conforme a
 [API I²C do Arduino-ESP32](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/i2c.html).
 Mais detalhes da tela estão no [guia OLED](docs/TESTE_OLED.md).
-O HC-SR04 não precisa estar conectado no teste OLED padrão. Quando habilitado,
-o HC-SR04 clássico usa VCC de 5 V; a fonte real ainda precisa ser definida.
-Não conecte ECHO diretamente ao GPIO21. Confira GND, alimentação e adaptação
+Os HC-SR04 não precisam estar conectados no teste OLED padrão.
+O HC-SR04 clássico usa VCC de 5 V; a fonte real ainda precisa ser definida.
+Não conecte ECHO de 5 V diretamente aos GPIOs 21, 35 ou 32.
+Confira GND, alimentação e adaptação
 nas [ligações previstas do sensor](docs/HARDWARE.md#hc-sr04-ligações-previstas).
 
 #### Seleção do canal de comunicação
@@ -752,7 +769,9 @@ Para testar com celular, use `cell phone`. Depois de alcançar a faixa inferior,
 retire o alvo por três inferências (cerca de 1 s) para liberar outro teste;
 enquanto a mesma aproximação estiver encerrada, `s` permanece esperado.
 
-Somente com sensor habilitado, dispare antes o HC-SR04 abaixo de 15 cm.
+Somente com a ativação por proximidade habilitada, aproxime um objeto abaixo
+de 15 cm de qualquer sensor. Repita o teste separadamente nos três sensores,
+conferindo também `Dist1`, `Dist2` e `Dist3` no OLED.
 Ao terminar a janela, confira `INICIAR:0` e a parada, mesmo que ainda haja uma
 garrafa na câmera. O firmware rejeita movimentos enquanto aguarda o sensor.
 Sem eco válido, nenhuma janela deve começar. Para conferir o vencimento,
@@ -913,9 +932,9 @@ Ou headless, adequado ao acesso SSH:
 ```
 
 Confira a sequência `d → w → a → s`, a parada ao perder o alvo e o timeout.
-No OLED padrão, não há disparo do sensor nem limite de 30 s. Quando
-sensor habilitado por `--ultrasonic` ou pelo padrão de `motors`, dispare primeiro
-o HC-SR04 abaixo de 15 cm e confira
+No OLED padrão, não há disparo do sensor nem limite de 30 s. Quando a ativação
+por proximidade estiver habilitada por `--ultrasonic` ou pelo padrão de `motors`,
+aproxime um objeto abaixo de 15 cm de qualquer um dos três HC-SR04 e confira
 `INICIAR:0` e a parada ao completar 30 s. Para testar só a câmera, execute
 sem `--serial-port`.
 Para os motores, acrescente `--output motors` ao comando; para a tela, use
@@ -1018,7 +1037,8 @@ Na Pi com o perfil UART2, substitua a porta por `/dev/ttyAMA0`. A placa anuncia
 `CONFIG:OLED:1` para OLED com sensor, `CONFIG:MOTORES:1` para motores com sensor
 ou `CONFIG:MOTORES:0` para motores sem sensor. Aguarde a confirmação exata
 `CONFIG_OK:<saida>:<sensor>` e depois `READY`. Envie `?` para consultar o estado.
-Somente com sensor habilitado, dispare o HC-SR04 antes de enviar movimentos.
+Somente com a ativação por proximidade habilitada, dispare qualquer um dos
+três HC-SR04 antes de enviar movimentos.
 Envie `a`, `w`, `d` ou `s`,
 sempre com Enter. `Ctrl+]` fecha o miniterm; envie `s` antes de sair.
 O monitor serial da Arduino IDE também pode ser usado com **115200 baud** e
@@ -1045,9 +1065,10 @@ para o movimento. `s` e `h` continuam aceitos quando a placa está pronta;
 `h` não libera movimentos. Firmware antigo sem suporte a `CONFIG` é rejeitado
 pelo Python; grave a versão atual antes de usar os novos argumentos.
 
-O HC-SR04 é lido em todos os modos a cada 100 ms, com `pulseIn` limitado a 30 ms.
+Os três HC-SR04 são lidos em todos os modos a cada 100 ms, com um único pulso
+TRIG e acompanhamento simultâneo dos ECHOs por até 30 ms no total.
 Quando a ativação por proximidade está habilitada, uma distância válida abaixo
-de 15 cm libera a janela. A ESP32 encerra os movimentos
+de 15 cm em qualquer sensor libera a janela. A ESP32 encerra os movimentos
 localmente após 30 s; `h` não prolonga essa autorização. `INICIAR:1/0` são
 mensagens enviadas pela ESP32, não comandos manuais para forçar a liberação.
 
@@ -1163,7 +1184,9 @@ inicialização dos ESCs e firmware OLED sem PWM. Para executar, use
 `.venv/bin/python -m unittest discover -s tests`.
 Os perfis UART2 e USB compilaram para ESP32 Dev Module. A inferência
 com o SSD real e a geração de uma imagem com divisórias também foram verificadas.
-Os testes nativos cobrem as APIs Arduino-ESP32 2.x e 3.x.
+Os testes nativos cobrem as APIs Arduino-ESP32 2.x e 3.x, os três ECHOs
+simultâneos ou sobrepostos, a ativação individual, sensores sem resposta e
+a volta do contador de microssegundos.
 
 A resposta física da tela, os ESCs, os motores e o desempenho na Raspberry ainda
 precisam ser avaliados. O acompanhamento usa geometria e pode ficar ambíguo com

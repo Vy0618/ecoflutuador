@@ -71,7 +71,7 @@ int main(int argc, char**) {
   send("w\n");
   assert(alvo1 == 1300 && alvo2 == 1300);
   assert(display.shown.find("CMD: w") != std::string::npos);
-  assert(display.shown.find("Dist: 12.0 cm") != std::string::npos);
+  assert(display.shown.find("Dist1: 12.0 cm") != std::string::npos);
 
   send("s\nCONFIG:OLED:1\n");
   assert(usarOled && usarUltrassonico && !iniciar && !armado);
@@ -98,11 +98,11 @@ int main(int argc, char**) {
   testEchoDuration = 700;
   testClock += 100;
   loop();
-  assert(iniciar && display.shown.find("Dist: 12.0 cm") != std::string::npos);
+  assert(iniciar && display.shown.find("Dist1: 12.0 cm") != std::string::npos);
   testEchoDuration = 0;
   testClock += 100;
   loop();
-  assert(iniciar && display.shown.find("Dist: sem eco") != std::string::npos);
+  assert(iniciar && display.shown.find("Dist1: sem eco") != std::string::npos);
   testClock = ultimoComando + 3000;
   loop();
   assert(atual1 == 1000 && atual2 == 1000 && comandoAtual == 's');

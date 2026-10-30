@@ -68,7 +68,7 @@ int main() {
   loop();
   testEchoDuration = 0;
   assert(iniciar);
-  assert(testPulsePin == 21 && testPulseState == HIGH && testPulseTimeout == 30000);
+  assert(testTriggerCalls > 0 && testTriggerWidthUs == 10);
   assert(testDigitalValues[19] == LOW);
   SerialComando.output.clear();
   send("?\n");

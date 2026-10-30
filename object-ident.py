@@ -89,7 +89,7 @@ def main():
     parser.add_argument("--output", help="Saida ESP32: oled (padrao) ou motors; com --image, aceita o caminho de saida antigo")
     sensor = parser.add_mutually_exclusive_group()
     sensor.add_argument("--ultrasonic", dest="ultrasonic", action="store_true", default=None,
-                        help="Exige ativacao pelo HC-SR04 (padrao com motors)")
+                        help="Exige proximidade em qualquer um dos tres HC-SR04 (padrao com motors)")
     sensor.add_argument("--no-ultrasonic", dest="ultrasonic", action="store_false",
                         help="Opera continuamente, sem exigir disparo do sensor (padrao com oled)")
     parser.add_argument("--duration", type=float, help="Encerra apos N segundos")

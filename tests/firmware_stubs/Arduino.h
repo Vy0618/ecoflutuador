@@ -8,6 +8,7 @@
 using std::max;
 using std::min;
 inline uint32_t testClock = 0;
+inline uint32_t testSubClockUs = 0;
 inline uint32_t testDuty[64] = {};
 inline uint32_t testPwmCalls = 0;
 inline uint32_t testDetachCalls = 0;
@@ -22,27 +23,46 @@ inline uint8_t testPinModes[64] = {};
 inline uint32_t testPinModeCalls[64] = {};
 inline uint8_t testDigitalValues[64] = {};
 inline unsigned long testEchoDuration = 0;
-inline uint32_t testPulseCalls = 0;
-inline uint32_t testPulseDelayMs = 0;
-inline uint8_t testPulsePin = 0;
-inline uint8_t testPulseState = LOW;
-inline unsigned long testPulseTimeout = 0;
+inline bool testPerPinEcho = false;
+inline uint32_t testEchoDurations[64] = {};
+inline uint32_t testEchoDelaysUs[64] = {};
+inline bool testEchoHeldHigh[64] = {};
+inline uint32_t testTriggerCalls = 0;
+inline uint32_t testTriggerUs = 0;
+inline uint32_t testTriggerHighUs = 0;
+inline uint32_t testTriggerWidthUs = 0;
 
 inline uint32_t millis() { return testClock; }
+inline uint32_t micros() { return testClock * 1000u + testSubClockUs; }
 inline void delay(uint32_t amount) { testClock += amount; }
-inline void delayMicroseconds(uint32_t) {}
+inline void delayMicroseconds(uint32_t amount) {
+  testSubClockUs += amount;
+  testClock += testSubClockUs / 1000u;
+  testSubClockUs %= 1000u;
+}
 inline void pinMode(uint8_t pin, uint8_t mode) {
   testPinModes[pin] = mode;
   ++testPinModeCalls[pin];
 }
-inline void digitalWrite(uint8_t pin, uint8_t value) { testDigitalValues[pin] = value; }
-inline unsigned long pulseIn(uint8_t pin, uint8_t state, unsigned long timeout) {
-  ++testPulseCalls;
-  testPulsePin = pin;
-  testPulseState = state;
-  testPulseTimeout = timeout;
-  testClock += testPulseDelayMs;
-  return testEchoDuration;
+inline void digitalWrite(uint8_t pin, uint8_t value) {
+  if (pin == 19) {
+    if (value == HIGH && testDigitalValues[pin] == LOW) testTriggerHighUs = micros();
+    if (value == LOW && testDigitalValues[pin] == HIGH) {
+      ++testTriggerCalls;
+      testTriggerUs = micros();
+      testTriggerWidthUs = testTriggerUs - testTriggerHighUs;
+    }
+  }
+  testDigitalValues[pin] = value;
+}
+inline int digitalRead(uint8_t pin) {
+  if (pin != 21 && pin != 35 && pin != 32) return testDigitalValues[pin];
+  if (testEchoHeldHigh[pin]) return HIGH;
+  if (testTriggerCalls == 0) return LOW;
+  const uint32_t elapsed = micros() - testTriggerUs;
+  const uint32_t start = 200u + testEchoDelaysUs[pin];
+  const uint32_t duration = testPerPinEcho ? testEchoDurations[pin] : testEchoDuration;
+  return elapsed >= start && elapsed - start < duration ? HIGH : LOW;
 }
 template <typename T> T constrain(T value, T low, T high) {
   return min(max(value, low), high);
